@@ -1,0 +1,22 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Mac
+.DS_Store
+
+# Credentials (Sensitive!)
+config/credentials.json
+config/token.json
+
+# Local Data Output (Do not commit real anomaly data)
+daily_anomalies.xlsx
+master_anomalies.xlsx
+anomaly_exports.csv
+~$*.xlsx
+
+# Temporary/Old configs
+wf.json

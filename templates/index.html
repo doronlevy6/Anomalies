@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Anomaly Detective</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+    <div class="app-container">
+        <header class="main-header">
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
+                    </path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                <span>Anomaly Detective</span>
+            </div>
+            <div class="header-actions">
+                <button id="runBtn" class="primary-btn">
+                    <span class="btn-text">הרץ בדיקה</span>
+                    <span class="loader hidden"></span>
+                </button>
+                <button id="stopBtn" class="primary-btn btn-danger hidden">
+                    <span class="btn-text">עצור</span>
+                </button>
+                <button class="secondary-btn" onclick="reloadMap()" title="עדכן נתוני לקוח מקובץ אקסל">
+                    <span class="btn-text">🔄 עדכן נתוני לקוח</span>
+                </button>
+                <button onclick="clearExport()" class="secondary-btn" style="background:#fef3c7; color:#92400e;">
+                    <span class="btn-text">נקה קובץ מעקב</span>
+                </button>
+            </div>
+        </header>
+
+        <div id="consoleLog" class="console-log hidden">
+            <div class="console-header">System Log</div>
+            <div class="console-output" id="consoleOutput"></div>
+        </div>
+
+        <main id="resultsContainer" class="feed">
+            <div class="empty-state">
+                <div class="icon">🔍</div>
+                <h3>מוכן לסריקה</h3>
+                <p>לחץ על כפתור "הרץ בדיקה" כדי למשוך ולנתח מיילים אחרונים מג'ימייל.</p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const runBtn = document.getElementById('runBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const runText = runBtn.querySelector('.btn-text');
+        const loader = runBtn.querySelector('.loader');
+        const container = document.getElementById('resultsContainer');
+        const consoleLog = document.getElementById('consoleLog');
+        const consoleOutput = document.getElementById('consoleOutput');
+
+        let evtSource = null;
+
+        function appendLog(msg) {
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            line.textContent = `> ${msg}`;
+            consoleOutput.appendChild(line);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        runBtn.addEventListener('click', async () => {
+            // UI State
+            runBtn.classList.add('hidden');
+            stopBtn.classList.remove('hidden');
+            loader.classList.remove('hidden');
+
+            consoleLog.classList.remove('hidden');
+            consoleOutput.innerHTML = ''; // Clear previous logs
+            container.innerHTML = '<div class="scanning-state"><div class="pulse"></div><p>תהליך רץ, נא להמתין...</p></div>';
+
+            try {
+                // Start Job
+                const res = await fetch('/api/run', { method: 'POST' });
+                if (res.status !== 202) {
+                    const err = await res.json();
+                    alert("שגיאה בהתחלה: " + err.message);
+                    resetUI();
+                    return;
+                }
+
+                // Connect to Stream
+                evtSource = new EventSource("/api/stream");
+
+                evtSource.onmessage = function (e) {
+                    const data = JSON.parse(e.data);
+
+                    if (data.type === 'log') {
+                        appendLog(data.message);
+                    } else if (data.type === 'result') {
+                        if (data.cards.length === 0) {
+                            container.innerHTML = `
+                                <div class="empty-state">
+                                    <div class="icon">✅</div>
+                                    <h3>הכל נקי</h3>
+                                    <p>לא נמצאו מיילים חדשים על חריגות.</p>
+                                </div>`;
+                        } else {
+                            container.innerHTML = data.cards.join('');
+                        }
+                    } else if (data.type === 'error') {
+                        container.innerHTML = `<div class="error-msg">שגיאה: ${data.message}</div>`;
+                        appendLog("ERROR: " + data.message);
+                    } else if (data.type === 'done') {
+                        appendLog("Finished.");
+                        evtSource.close();
+                        resetUI();
+                    }
+                };
+
+                evtSource.onerror = function () {
+                    appendLog("Connection lost.");
+                    evtSource.close();
+                    resetUI();
+                };
+
+            } catch (e) {
+                console.error(e);
+                resetUI();
+            }
+        });
+
+        stopBtn.addEventListener('click', async () => {
+            stopBtn.disabled = true;
+            appendLog("Stopping...");
+            await fetch('/api/stop', { method: 'POST' });
+        });
+
+        async function reloadMap() {
+            appendLog("Updating customer data from Excel...");
+            try {
+                const res = await fetch('/api/reload-map', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    appendLog(`✅ ${data.message}`);
+                    alert(data.message);
+                } else {
+                    appendLog(`❌ Error: ${data.message}`);
+                    alert("Error: " + data.message);
+                }
+            } catch (err) {
+                console.error(err);
+                appendLog(`❌ Failed to reload map: ${err}`);
+            }
+        }
+
+        async function exportAnomaly(companyName, accountName, accountId, startDate, endDate, totalImpact, services, region, usageType, force = false) {
+            appendLog(force ? "מנסה להוסיף בכוח..." : "מייצא אנומליה לקובץ מעקב...");
+            try {
+                const res = await fetch('/api/export-anomaly', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        company_name: companyName,
+                        account_name: accountName,
+                        account_id: accountId,
+                        start_date: startDate,
+                        end_date: endDate,
+                        services: services,
+                        region: region,
+                        usage_type: usageType,
+                        total_impact: totalImpact,
+                        status: 'Logged for tracking',
+                        force: force
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    appendLog(`✅ ${data.message}`);
+                    alert(data.message);
+                } else if (data.status === 'daily_duplicate') {
+                    appendLog(`⚠️ ${data.message}`);
+                    alert(data.message);
+                } else if (data.status === 'master_duplicate') {
+                    // Confirmation Dialog for Master Duplicate
+                    if (confirm(data.message)) {
+                        // User said YES -> Call again with force=true
+                        await exportAnomaly(companyName, accountName, accountId, startDate, endDate, totalImpact, services, region, usageType, true);
+                    } else {
+                        appendLog("⚠️ ההוספה בוטלה על ידי המשתמש.");
+                    }
+                } else {
+                    appendLog(`❌ ${data.message}`);
+                    alert("Error: " + data.message);
+                }
+            } catch (err) {
+                console.error(err);
+                appendLog(`❌ שגיאה בייצוא: ${err.message}`);
+                alert(`שגיאה: ${err.message}`);
+            }
+        }
+
+        async function clearExport() {
+            if (!confirm('האם אתה בטוח שברצונך לנקות את קובץ המעקב? (הכותרות יישמרו)')) {
+                return;
+            }
+            appendLog("מנקה קובץ מעקב...");
+            try {
+                const res = await fetch('/api/clear-export', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    appendLog(`✅ ${data.message}`);
+                    alert(data.message);
+                } else {
+                    appendLog(`❌ ${data.message}`);
+                    alert("Error: " + data.message);
+                }
+            } catch (err) {
+                console.error(err);
+                appendLog(`❌ שגיאה: ${err.message}`);
+                alert(`שגיאה: ${err.message}`);
+            }
+        }
+
+        function resetUI() {
+            runBtn.classList.remove('hidden');
+            stopBtn.classList.add('hidden');
+            stopBtn.disabled = false;
+        }
+
+        // Helper for toggling sections
+        function toggleSection(id, btn) {
+            const el = document.getElementById(id);
+            if (el.style.display === 'none') {
+                el.style.display = 'block';
+                if (btn) btn.classList.add('active');
+            } else {
+                el.style.display = 'none';
+                if (btn) btn.classList.remove('active');
+            }
+        }
+    </script>
+</body>
+
+</html>
