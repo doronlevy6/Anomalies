@@ -501,12 +501,14 @@ def invoke_llm(bedrock, email_data):
     6) action_required: true/false
     7) next_action_he / en: imperative step.
     8) total_impact_usd: "$Amount" (Extract the most relevant cost figure from the text).
+    9) summary_he: A concise 2-3 line Hebrew summary of the email. Focus on: What alert is this? Which account/service? What is the estimated impact? Write in plain Hebrew so someone can understand at a glance without reading the full email.
 
     Return ONLY valid JSON with EXACTLY these keys:
     {{
       "fromName":"string",
       "fromAddress":"string",
       "subject":"string",
+      "summary_he":"string",
       "anomalies_he":"string",
       "active_member_account_id":"string",
       "team_message_he":"string",
@@ -757,24 +759,30 @@ def generate_html_card(ctx, data, index):
             </div>
         </div>
         
+        <div class="summary-box he" style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:12px; margin:10px 0;">
+            <div style="font-weight:600; color:#0369a1; margin-bottom:5px;">📋 תקציר:</div>
+            <div style="color:#1e3a5f; line-height:1.5;">{data.get('summary_he', 'לא נמצא תקציר')}</div>
+        </div>
+        
         <div class="he">
             <div class="action-status">{action_label}</div>
             
             <div class="button-group">
-                <button class="btn" onclick="toggleSection('{uid}-an', this)">אנומליות (HE)</button>
+                <button class="btn" onclick="toggleSection('{uid}-an', this)">פרטים (HE)</button>
                 <button class="btn" onclick="toggleSection('{uid}-tm', this)">הודעה לצוות</button>
                 <button class="btn" onclick="toggleSection('{uid}-ch', this)">לקוח (HE)</button>
                 <button class="btn" onclick="toggleSection('{uid}-ce', this)">Client (EN)</button>
                 <a class="btn" href="/api/email/{data.get('id')}" target="_blank" style="background:#f3f4f6; color:#374151; border-color:#d1d5db;">👁️ המייל המקורי</a>
                 {f'<a class="btn" href="{data.get("console_link")}" target="_blank">פתח בקונסולה</a>' if data.get('console_link') else ''}
-                <button class="btn" onclick="exportAnomaly('{customer}', '{account_name}', '{active_account_id}', '{start_date}', '{end_date}', '{total_impact}', '{services.replace("'", "\\'")}', '{region}', '{usage_type.replace("'", "\\'")}')\" style="background:#fef3c7; color:#92400e; border-color:#fde68a;">📊 ייצא לקובץ מעקב</button>
+                <button class="btn" onclick="exportAnomaly('{customer}', '{account_name}', '{active_account_id}', '{start_date}', '{end_date}', '{total_impact}', '{services.replace("'", "\\'")}', '{region}', '{usage_type.replace("'", "\\'")}')" style="background:#fef3c7; color:#92400e; border-color:#fde68a;">📊 ייצא לקובץ מעקב</button>
             </div>
         </div>
         
         <div id="{uid}-an" class="section he" style="display:none;">
-            <div class="section-title">אנומליות שזוהו:</div>
+            <div class="section-title">פרטים מלאים:</div>
             <pre>{data.get('anomalies_he', '')}</pre>
         </div>
+
         
         <div id="{uid}-tm" class="section he" style="display:none;">
             <div class="section-title">הודעה לצוות:</div>
