@@ -81,10 +81,27 @@ def export_anomaly(data, force_master=False):
     
     # Append to Daily
     daily_df = pd.concat([daily_df, new_row_df], ignore_index=True)
+    
+    # Sort Daily by Impact (High to Low)
+    try:
+        # Create temp column for sorting
+        daily_df['SortImpact'] = daily_df['Total Impact'].astype(str).str.replace('$', '').str.replace(',', '').apply(pd.to_numeric, errors='coerce').fillna(0)
+        daily_df = daily_df.sort_values(by='SortImpact', ascending=False)
+        daily_df = daily_df.drop(columns=['SortImpact'])
+    except: pass
+    
     daily_df.to_excel(DAILY_FILE, index=False)
     
     # Append to Master
     master_df = pd.concat([master_df, new_row_df], ignore_index=True)
+    
+    # Sort Master by Impact (High to Low)
+    try:
+        master_df['SortImpact'] = master_df['Total Impact'].astype(str).str.replace('$', '').str.replace(',', '').apply(pd.to_numeric, errors='coerce').fillna(0)
+        master_df = master_df.sort_values(by='SortImpact', ascending=False)
+        master_df = master_df.drop(columns=['SortImpact'])
+    except: pass
+        
     master_df.to_excel(MASTER_FILE, index=False)
     
     return {"status": "success"}
