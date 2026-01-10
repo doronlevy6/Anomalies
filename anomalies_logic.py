@@ -350,72 +350,6 @@ def deduplicate_usage_types(split_results, body_text):
         impact_match = re.search(r'Impact Contribution:\s*\$([0-9.,]+)', text)
         impact = float(impact_match.group(1).replace(',', '')) if impact_match else 0.0
         
-        # --- SMART FILTERING ---
-        # 1. Identify all usage types in the block
-        all_usgs = re.findall(r'Usage Type:\s*([^\n]+)', text, re.IGNORECASE)
-        
-        # 2. Check for blacklist terms
-        blacklist_terms = ['tax', 'solution provider program discount']
-        
-        has_bad = any(any(term in u.lower() for term in blacklist_terms) for u in all_usgs)
-        has_good = any(not any(term in u.lower() for term in blacklist_terms) for u in all_usgs)
-        
-        if not all_usgs:
-            # Fallback if no Usage Type found (rare), rely on single extraction or keep
-            pass
-            
-        if has_bad and not has_good:
-            # All identified types are bad -> Drop the whole block
-            continue
-            
-        if has_bad and has_good:
-            # Mixed Block (Rare/Fuzzy Split) -> Clean the text
-            # We try to remove the specific lines associated with bad types
-            # Heuristic: split by some delimiter or line-by-line?
-            # Better: Pass to LLM but try to 'mask' the bad parts?
-            # Or regex remove specific lines.
-            
-            # Simple approach: Remove lines containing the bad keywords
-            # This might leave "Impact" lines orphaned, but LLM can handle it.
-            # To be safer for 'impact_value' sort:
-            lines = text.split('\n')
-            clean_lines = []
-            valid_impact_sum = 0.0
-            
-            # Try to associate Impact lines with Usage types? Hard.
-            # Lets refine the 'impact_value' calculation by scanning ALL impacts
-            # and only summing those NOT close to bad words? Too complex.
-            
-            # Fallback: Just remove the lines explicitly naming the bad stuff.
-            # And attempt to subtract their impact if they are on same/next line?
-            
-            for line in lines:
-                if any(term in line.lower() for term in blacklist_terms):
-                    continue # Skip this line
-                clean_lines.append(line)
-            
-            item['text_block'] = '\n'.join(clean_lines)
-            
-            # Re-calculate impact from CLEAN text
-            # This ensures we don't sort by the inflated tax amount
-            all_impacts = re.findall(r'Impact Contribution:\s*\$([0-9.,]+)', item['text_block'])
-            new_impact = sum(float(x.replace(',', '')) for x in all_impacts)
-            
-            if new_impact > 0:
-                 impact = new_impact
-            # If new_impact is 0 (maybe we deleted the impact lines too?), fallback to original or 0.
-            
-            enriched_results.append({
-                **item,
-                'region': region,
-                'usage_type': usage_type, # Might be the first one found (standard)
-                'impact_value': impact
-            })
-            continue
-
-        # If we are here, it's either all good or no types found (keep)
-        # -----------------
-        
         enriched_results.append({
             **item,
             'region': region,
@@ -943,7 +877,6 @@ def run_anomalies_workflow(ctx: WorkflowContext):
     ctx.log(f"Found {len(messages)} messages.")
     
     cards = []
-    card_data_list = []
     
     for i, msg in enumerate(messages):
         if ctx.should_stop():
@@ -1109,19 +1042,8 @@ def run_anomalies_workflow(ctx: WorkflowContext):
                     combined_data['account_name'] = acc_info_card.get('accountName', 'Unknown')
                     combined_data['poc_name'] = acc_info_card.get('pocName', 'Customer')
                 
-                # Save data for sorting later
-                try:
-                    impact_str = item.get('total_impact_usd', '0').replace('$', '').replace(',', '')
-                    impact_val = float(impact_str)
-                except:
-                    impact_val = 0.0
-                
-                card_data_list.append({
-                    'ctx': ctx,
-                    'data': combined_data,
-                    'sort_val': impact_val,
-                    'original_idx': f"{i}_{idx}"
-                })
+                ctx.log(f"    > Card generated for {current_acc_id}")
+                cards.append(generate_html_card(ctx, combined_data, f"{i}_{idx}"))
         
         # Node: Apply Label
         ctx.log("--- Node: Apply Label ---")
@@ -1132,17 +1054,8 @@ def run_anomalies_workflow(ctx: WorkflowContext):
         except Exception as e:
              ctx.log(f"  > Warning: Failed to label: {e}")
 
-    ctx.log(f"--- Processing Complete. Sorting {len(card_data_list)} cards... ---")
-    
-    # SORTING: High to Low
-    card_data_list.sort(key=lambda x: x['sort_val'], reverse=True)
-    
-    final_cards = []
-    for cd in card_data_list:
-        final_cards.append(generate_html_card(cd['ctx'], cd['data'], cd['original_idx']))
-        
     ctx.log("--- Analysis Complete ---")
-    return final_cards
+    return cards
 
 def fetch_email_html(message_id):
     try:
