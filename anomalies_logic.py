@@ -847,7 +847,7 @@ def extract_console_link(html_content):
     return ""
 
 # --- Main Logic ---
-def run_workflow(ctx: WorkflowContext):
+def run_anomalies_workflow(ctx: WorkflowContext):
     ctx.log("--- Starting Analysis ---")
     
     if ctx.should_stop(): return []

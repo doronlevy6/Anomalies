@@ -2,7 +2,7 @@ from flask import Flask, render_template, jsonify
 # from workflow_logic import run_workflow 
 # We import inside the route to ensuring fresh reloading if needed, 
 # although not strictly necessary for simple app
-import workflow_logic
+# import anomalies_logic # Imported below
 
 app = Flask(__name__)
 
@@ -16,7 +16,8 @@ import time
 from flask import Flask, render_template, jsonify, Response, stream_with_context
 
 # from workflow_logic import run_workflow 
-import workflow_logic
+import anomalies_logic
+import alerts_logic
 
 app = Flask(__name__)
 
@@ -27,16 +28,20 @@ class JobManager:
         self.thread = None
         self.lock = threading.Lock()
 
-    def start_job(self):
+    def start_job(self, mode='anomalies'):
         with self.lock:
             if self.active_context and self.thread and self.thread.is_alive():
                 return False, "Job already running"
             
-            self.active_context = workflow_logic.WorkflowContext()
+            self.active_context = anomalies_logic.WorkflowContext()
             
             def wrapper(ctx):
                 try:
-                    cards = workflow_logic.run_workflow(ctx)
+                    if mode == 'alerts':
+                        cards = alerts_logic.run_alerts_workflow(ctx)
+                    else:
+                        cards = anomalies_logic.run_anomalies_workflow(ctx)
+                    
                     ctx.msg_queue.put({"type": "result", "cards": cards})
                 except Exception as e:
                     ctx.msg_queue.put({"type": "error", "message": str(e)})
@@ -83,7 +88,15 @@ def index():
 
 @app.route('/api/run', methods=['POST'])
 def run_analysis():
-    success, msg = job_manager.start_job()
+    success, msg = job_manager.start_job(mode='anomalies')
+    if success:
+        return jsonify({"status": "started"}), 202
+    else:
+        return jsonify({"status": "busy", "message": msg}), 409
+
+@app.route('/api/run-alerts', methods=['POST'])
+def run_alerts():
+    success, msg = job_manager.start_job(mode='alerts')
     if success:
         return jsonify({"status": "started"}), 202
     else:
@@ -156,7 +169,7 @@ import os
 
 @app.route('/api/email/<message_id>')
 def view_email(message_id):
-    html_content = workflow_logic.fetch_email_html(message_id)
+    html_content = anomalies_logic.fetch_email_html(message_id)
     return html_content
 
 @app.route('/oauth2callback')
