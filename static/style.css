@@ -388,3 +388,134 @@ pre {
         border-left-color: transparent;
     }
 }
+
+/* --- Tabs & Tables --- */
+
+.tabs-nav {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 12px;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 8px 16px;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover {
+    background: #e5e7eb;
+    color: var(--text-primary);
+}
+
+.tab-btn.active {
+    background: #eff6ff;
+    color: var(--primary-color);
+    font-weight: 700;
+}
+
+.tracking-toolbar {
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.tables-container {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.table-section h3 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    border-right: 4px solid var(--primary-color);
+    padding-right: 12px;
+}
+
+.table-wrapper {
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+th,
+td {
+    padding: 12px 16px;
+    text-align: right;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+tr:hover {
+    background: #f9fafb;
+}
+
+/* Highlight Animation */
+@keyframes highlightFade {
+    0% {
+        background-color: #fef08a;
+    }
+
+    /* Yellow-200 */
+    100% {
+        background-color: transparent;
+    }
+}
+
+.highlight-row {
+    animation: highlightFade 3s ease-out forwards;
+}
+
+/* Fix Secondary Button Visibility */
+.secondary-btn {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    /* Slate-600 */
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    backdrop-filter: none;
+}
+
+.secondary-btn:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+    color: #1e293b;
+    transform: translateY(-1px);
+}

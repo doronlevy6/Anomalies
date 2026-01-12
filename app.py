@@ -130,9 +130,17 @@ def export_anomaly():
         result = export_helper.export_anomaly(data, force_master=force)
         
         if result['status'] == 'success':
-            return jsonify({"status": "success", "message": "אנומליה נוספה לקבצי המעקב (יומי וראשי)"})
+            return jsonify({
+                "status": "success", 
+                "message": "אנומליה נוספה לקבצי המעקב (יומי וראשי)",
+                "timestamp": result.get('timestamp')
+            })
         elif result['status'] == 'daily_duplicate':
-            return jsonify({"status": "daily_duplicate", "message": "אנומליה זו כבר קיימת בקובץ היומי (נחסם)"})
+            return jsonify({
+                "status": "daily_duplicate", 
+                "message": "אנומליה זו כבר קיימת בקובץ היומי (נחסם)",
+                "timestamp": result.get('timestamp')
+            })
         elif result['status'] == 'master_duplicate':
             existing_date = result.get('existing_date', 'Unknown')
             return jsonify({
@@ -141,6 +149,25 @@ def export_anomaly():
                 "existing_date": existing_date
             })
             
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/delete-rows', methods=['POST'])
+def delete_rows():
+    """Delete selected rows from tracking files"""
+    data = request.json
+    file_type = data.get('type') # 'daily' or 'master'
+    timestamps = data.get('timestamps', [])
+    
+    if not file_type or not timestamps:
+         return jsonify({"status": "error", "message": "Missing type or timestamps"}), 400
+         
+    try:
+        success = export_helper.delete_rows(file_type, timestamps)
+        if success:
+             return jsonify({"status": "success", "message": f"נמחקו {len(timestamps)} שורות בהצלחה"})
+        else:
+             return jsonify({"status": "error", "message": "לא נמצאו שורות למחיקה"}), 404
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -162,6 +189,15 @@ def reset_export():
             return jsonify({"status": "success", "message": "קובץ המעקב אופס בהצלחה"})
         else:
             return jsonify({"status": "success", "message": "קובץ המעקב לא קיים"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/get-tracking-data')
+def get_tracking_data():
+    """Returns the daily and master tracking data"""
+    try:
+        data = export_helper.get_tracking_data()
+        return jsonify({"status": "success", "data": data})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 

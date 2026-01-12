@@ -38,8 +38,8 @@ def check_duplicate(df, data):
     
     matches = df[mask]
     if not matches.empty:
-        # Return the Timestamp of the first match
-        return matches.iloc[0]['Timestamp']
+        # Return the Timestamp of the first match as string
+        return str(matches.iloc[0]['Timestamp'])
     return None
 
 def export_anomaly(data, force_master=False):
@@ -68,8 +68,9 @@ def export_anomaly(data, force_master=False):
     }
     
     # 1. Check Daily
-    if check_duplicate(daily_df, data):
-        return {"status": "daily_duplicate"}
+    dup_ts = check_duplicate(daily_df, data)
+    if dup_ts:
+        return {"status": "daily_duplicate", "timestamp": dup_ts}
         
     # 2. Check Master
     existing_date = check_duplicate(master_df, data)
@@ -87,10 +88,41 @@ def export_anomaly(data, force_master=False):
     master_df = pd.concat([master_df, new_row_df], ignore_index=True)
     master_df.to_excel(MASTER_FILE, index=False)
     
-    return {"status": "success"}
+    return {"status": "success", "timestamp": row['Timestamp']}
 
-def clear_daily_file():
-    """Clears the daily file (recreates empty with headers)."""
-    df = pd.DataFrame(columns=COLUMNS)
-    df.to_excel(DAILY_FILE, index=False)
-    return True
+def delete_rows(file_type, timestamps):
+    """Deletes rows by timestamp from the specified file."""
+    file_path = DAILY_FILE if file_type == 'daily' else MASTER_FILE
+    df = load_excel(file_path)
+    
+    if df.empty: return False
+    
+    # Filter out rows with matching timestamps
+    # Convert both to string to be safe
+    original_count = len(df)
+    df = df[~df['Timestamp'].astype(str).isin([str(ts) for ts in timestamps])]
+    
+    if len(df) < original_count:
+        df.to_excel(file_path, index=False)
+        return True
+    return False
+
+def get_tracking_data():
+    """Returns the contents of both tracking files."""
+    daily_df = load_excel(DAILY_FILE)
+    master_df = load_excel(MASTER_FILE)
+    
+    # Ensure Timestamp is string
+    if 'Timestamp' in daily_df.columns:
+        daily_df['Timestamp'] = daily_df['Timestamp'].astype(str)
+    if 'Timestamp' in master_df.columns:
+        master_df['Timestamp'] = master_df['Timestamp'].astype(str)
+    
+    # Replace NaN with None/Empty string for JSON serialization
+    daily_df = daily_df.fillna('')
+    master_df = master_df.fillna('')
+    
+    return {
+        "daily": daily_df.to_dict(orient='records'),
+        "master": master_df.to_dict(orient='records')
+    }

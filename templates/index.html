@@ -45,13 +45,80 @@
             <div class="console-output" id="consoleOutput"></div>
         </div>
 
-        <main id="resultsContainer" class="feed">
-            <div class="empty-state">
-                <div class="icon">🔍</div>
-                <h3>מוכן לסריקה</h3>
-                <p>לחץ על כפתור "הרץ בדיקה" כדי למשוך ולנתח מיילים אחרונים מג'ימייל.</p>
+        <div class="tabs-nav">
+            <button class="tab-btn active" onclick="openTab('scan')">🔎 סריקה והתראות</button>
+            <button class="tab-btn" onclick="openTab('tracking')" id="trackingTabBtn">📊 מעקב אנומליות</button>
+        </div>
+
+        <div id="scanTab" class="tab-content active">
+            <main id="resultsContainer" class="feed">
+                <div class="empty-state">
+                    <div class="icon">🔍</div>
+                    <h3>מוכן לסריקה</h3>
+                    <p>לחץ על כפתור "הרץ בדיקה" כדי למשוך ולנתח מיילים אחרונים מג'ימייל.</p>
+                </div>
+            </main>
+        </div>
+
+        <div id="trackingTab" class="tab-content" style="display:none;">
+            <div class="tracking-toolbar">
+                <button class="secondary-btn" onclick="loadTrackingData()">🔄 רענן טבלאות</button>
             </div>
-        </main>
+
+            <div class="tables-container">
+                <div class="table-section">
+                    <div class="section-header">
+                        <h3>📅 קובץ מעקב יומי (Daily)</h3>
+                        <div class="actions">
+                            <button id="delDailyBtn" class="btn btn-sm btn-danger hidden"
+                                onclick="deleteSelected('daily')">🗑️ מחק מסומנים</button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="dailyTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;"><input type="checkbox"
+                                            onchange="toggleAll(this, 'dailyTable')"></th>
+                                    <th>Time</th>
+                                    <th>Account</th>
+                                    <th>Service</th>
+                                    <th>Impact</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="table-section">
+                    <div class="section-header">
+                        <h3>📚 היסטוריה ראשית (Master)</h3>
+                        <div class="actions">
+                            <button id="delMasterBtn" class="btn btn-sm btn-danger hidden"
+                                onclick="deleteSelected('master')">🗑️ מחק מסומנים</button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="masterTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;"><input type="checkbox"
+                                            onchange="toggleAll(this, 'masterTable')"></th>
+                                    <th>Time</th>
+                                    <th>Account</th>
+                                    <th>Service</th>
+                                    <th>Impact</th>
+                                    <th>Dates</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -182,18 +249,26 @@
 
                 if (data.status === 'success') {
                     appendLog(`✅ ${data.message}`);
-                    alert(data.message);
+                    if (data.timestamp) highlightRowInTab(data.timestamp);
+                    else alert(data.message);
+
                 } else if (data.status === 'daily_duplicate') {
                     appendLog(`⚠️ ${data.message}`);
                     alert(data.message);
+
                 } else if (data.status === 'master_duplicate') {
-                    // Confirmation Dialog for Master Duplicate
-                    if (confirm(data.message)) {
-                        // User said YES -> Call again with force=true
-                        await exportAnomaly(companyName, accountName, accountId, startDate, endDate, totalImpact, services, region, usageType, true);
-                    } else {
-                        appendLog("⚠️ ההוספה בוטלה על ידי המשתמש.");
-                    }
+                    // Highlight existing row first so user can see it
+                    if (data.existing_date) highlightRowInTab(data.existing_date);
+
+                    // Delay confirmation slightly to allow tab switch
+                    setTimeout(() => {
+                        if (confirm(data.message)) {
+                            // User said YES -> Call again with force=true
+                            exportAnomaly(companyName, accountName, accountId, startDate, endDate, totalImpact, services, region, usageType, true);
+                        } else {
+                            appendLog("⚠️ ההוספה בוטלה על ידי המשתמש.");
+                        }
+                    }, 500);
                 } else {
                     appendLog(`❌ ${data.message}`);
                     alert("Error: " + data.message);
@@ -232,6 +307,158 @@
             loader.classList.add('hidden');
             stopBtn.classList.add('hidden');
             stopBtn.disabled = false;
+        }
+
+        // --- Delete Logic ---
+        function toggleAll(headerCheckbox, tableId) {
+            const table = document.getElementById(tableId);
+            const checkboxes = table.querySelectorAll('tbody input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = headerCheckbox.checked);
+            updateDeleteBtn(tableId);
+        }
+
+        function updateDeleteBtn(tableId) {
+            const table = document.getElementById(tableId);
+            const selected = table.querySelectorAll('tbody input[type="checkbox"]:checked').length;
+            const btnId = tableId === 'dailyTable' ? 'delDailyBtn' : 'delMasterBtn';
+            const btn = document.getElementById(btnId);
+
+            if (selected > 0) {
+                btn.classList.remove('hidden');
+                btn.textContent = `🗑️ מחק (${selected})`;
+            } else {
+                btn.classList.add('hidden');
+            }
+        }
+
+        async function deleteSelected(type) {
+            const tableId = type === 'daily' ? 'dailyTable' : 'masterTable';
+            const table = document.getElementById(tableId);
+            const checkboxes = table.querySelectorAll('tbody input[type="checkbox"]:checked');
+
+            if (checkboxes.length === 0) return;
+
+            if (!confirm(`האם אתה בטוח שברצונך למחוק ${checkboxes.length} שורות מהקובץ ${type}? פעולה זו לא ניתנת לביטול.`)) {
+                return;
+            }
+
+            const timestamps = Array.from(checkboxes).map(pos => pos.value);
+
+            try {
+                const res = await fetch('/api/delete-rows', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: type, timestamps: timestamps })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    appendLog(`✅ ${data.message}`);
+                    loadTrackingData(); // Refresh tables
+                } else {
+                    appendLog(`❌ Error deleting: ${data.message}`);
+                    alert(data.message);
+                }
+            } catch (e) {
+                console.error(e);
+                appendLog(`❌ Error: ${e}`);
+            }
+        }
+
+        // --- Tab Logic ---
+        function openTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+            if (tabName === 'scan') {
+                document.getElementById('scanTab').style.display = 'block';
+                document.querySelector('.tab-btn[onclick="openTab(\'scan\')"]').classList.add('active');
+            } else {
+                document.getElementById('trackingTab').style.display = 'block';
+                document.querySelector('.tab-btn[onclick="openTab(\'tracking\')"]').classList.add('active');
+                loadTrackingData(); // Auto reload when opening tab
+            }
+        }
+
+        // --- Tracking Tables Logic ---
+        async function loadTrackingData() {
+            // consoleLog.classList.remove('hidden'); // Optional: don't auto-show log just for reload
+            try {
+                const res = await fetch('/api/get-tracking-data');
+                const json = await res.json();
+
+                if (json.status === 'success') {
+                    renderTable('dailyTable', json.data.daily);
+                    renderTable('masterTable', json.data.master);
+                    // Reset buttons
+                    document.getElementById('delDailyBtn').classList.add('hidden');
+                    document.getElementById('delMasterBtn').classList.add('hidden');
+                    // Reset header checkboxes
+                    document.querySelectorAll('th input[type="checkbox"]').forEach(cb => cb.checked = false);
+                } else {
+                    appendLog("❌ Failed to load tracking data: " + json.message);
+                }
+            } catch (e) {
+                appendLog("❌ Error fetching tracking data: " + e);
+            }
+        }
+
+        function renderTable(tableId, rows) {
+            const tbody = document.querySelector(`#${tableId} tbody`);
+            tbody.innerHTML = '';
+
+            // Sort by Timestamp Descending
+            rows.sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
+
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-ts', row.Timestamp); // For highlighting
+
+                // Fields mapping based on table type
+                // daily: Time, Account, Service, Impact, Status
+                // master: Time, Account, Service, Impact, Dates
+
+                let cells = '';
+                const accDisplay = `${row['Account Name']} (${row['Account ID']})`;
+                const checkbox = `<td><input type="checkbox" value="${row.Timestamp}" onchange="updateDeleteBtn('${tableId}')"></td>`;
+
+                if (tableId === 'dailyTable') {
+                    cells = `
+                        ${checkbox}
+                        <td>${row.Timestamp}</td>
+                        <td>${accDisplay}</td>
+                        <td>${row.Services}</td>
+                        <td>${row['Total Impact']}</td>
+                        <td>${row.Status}</td>
+                     `;
+                } else {
+                    cells = `
+                        ${checkbox}
+                        <td>${row.Timestamp}</td>
+                        <td>${accDisplay}</td>
+                        <td>${row.Services}</td>
+                        <td>${row['Total Impact']}</td>
+                        <td>${row['Start Date']}</td>
+                     `;
+                }
+                tr.innerHTML = cells;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function highlightRowInTab(timestamp) {
+            openTab('tracking');
+            setTimeout(() => {
+                // Try finding in both tables
+                const row = document.querySelector(`tr[data-ts="${timestamp}"]`);
+                if (row) {
+                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    row.classList.add('highlight-row');
+                    setTimeout(() => row.classList.remove('highlight-row'), 3000); // Remove after 3s
+                } else {
+                    appendLog(`⚠️ Could not find row with timestamp ${timestamp} to highlight.`);
+                }
+            }, 500); // Wait for render
         }
 
         // Helper for toggling sections
