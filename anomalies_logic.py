@@ -420,11 +420,14 @@ def invoke_llm(bedrock, email_data):
     <Dates>, <Services Text>.
 
     Region(s): <Regions>.
+    Usage Type: <Usage Type>.
     היקף משוער: $<Total Amount>.
     רק מוודא שניתן להודיע ללקוח וזה לא משהו בצד שלנו.
 
     --- TEMPLATE: client_message_he (Customer Hebrew) ---
     שלום {poc_name},
+
+    חשבון: {acc_name} ({acc_id})
 
     <Description of the usage increase, mentioning specific services or components>
 
@@ -450,6 +453,8 @@ def invoke_llm(bedrock, email_data):
 
     --- TEMPLATE: client_message_en (Customer English) ---
     Hello {poc_name},
+
+    Account: {acc_name} ({acc_id})
 
     <Description of the usage increase, mentioning specific services or components>
 
@@ -501,7 +506,14 @@ def invoke_llm(bedrock, email_data):
     6) action_required: true/false
     7) next_action_he / en: imperative step.
     8) total_impact_usd: "$Amount" (Extract the most relevant cost figure from the text).
-    9) summary_he: A concise 2-3 line Hebrew summary of the email. Focus on: What alert is this? Which account/service? What is the estimated impact? Write in plain Hebrew so someone can understand at a glance without reading the full email.
+    9) summary_he: A concise Hebrew summary with the following structured format:
+       - חשבון: {acc_name} ({acc_id})
+       - תקופה: <Dates in format matching the date rules above>
+       - סכום: <$Amount>
+       - שירות: <Service name(s)>
+       - סוג שימוש: <Usage Type>
+       
+       Write this as a clean, readable summary that includes all these fields.
 
     Return ONLY valid JSON with EXACTLY these keys:
     {{
@@ -601,6 +613,9 @@ def load_account_map():
         print(f"Error loading account map: {e}")
         return 0
 
+def get_account_map():
+    return ACCOUNT_MAP
+
 # Load on module start
 load_account_map()
 if ACCOUNT_MAP:
@@ -682,13 +697,9 @@ def generate_html_card(ctx, data, index):
     elif start_date:
         end_date = start_date  # Fallback to start if no end found
     
-    # Extract services for export
-    services_list = []
-    for service_match in re.finditer(r'AWS Service:\s*([^\n]+)', body_text):
-        service = service_match.group(1).strip()
-        if service not in services_list:
-            services_list.append(service)
-    services = ', '.join(services_list) if services_list else ''
+    # Extract service for export (First occurrence only - each anomaly has one service)
+    service_match = re.search(r'AWS Service:\s*([^\n]+)', body_text)
+    services = service_match.group(1).strip() if service_match else ''
     
     # Extract Region (First occurrence)
     region_match = re.search(r'Region:\s*([^\n]+)', body_text)

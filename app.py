@@ -114,8 +114,17 @@ def stream():
 
 @app.route('/api/reload-map', methods=['POST'])
 def reload_map():
-    count = workflow_logic.load_account_map()
-    return jsonify({"status": "success", "count": count, "message": f"Successfully reloaded {count} accounts from Excel."})
+    try:
+        count = anomalies_logic.load_account_map()
+        alerts_logic.load_account_map_independent()
+        return jsonify({
+            "status": "success", 
+            "count": count, 
+            "message": f"Successfully reloaded {count} accounts from Excel (updated in both workflows).",
+            "data": anomalies_logic.get_account_map()
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Error reloading map: {str(e)}"}), 500
 
 from flask import request
 import export_helper
@@ -201,12 +210,71 @@ def get_tracking_data():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/update-status', methods=['POST'])
+def update_status():
+    """Updates the Status field for a specific row in Master table"""
+    data = request.json
+    timestamp = data.get('timestamp')
+    new_status = data.get('status')
+    
+    if not timestamp or not new_status:
+        return jsonify({"status": "error", "message": "Missing timestamp or status"}), 400
+    
+    try:
+        success = export_helper.update_status(timestamp, new_status)
+        if success:
+            return jsonify({"status": "success", "message": f"Status updated to: {new_status}"})
+        else:
+            return jsonify({"status": "error", "message": "Row not found"}), 404
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 import os
+import subprocess
 
 @app.route('/api/email/<message_id>')
 def view_email(message_id):
     html_content = anomalies_logic.fetch_email_html(message_id)
     return html_content
+
+@app.route('/api/open-excel', methods=['POST'])
+def open_excel():
+    """Open the customer data Excel file"""
+    try:
+        excel_path = os.path.join(os.path.dirname(__file__), 'templates', 'mailsToFlow1.xlsx')
+        if not os.path.exists(excel_path):
+            return jsonify({"status": "error", "message": "Excel file not found"}), 404
+        
+        # Open the file with the default application (macOS)
+        subprocess.run(['open', excel_path], check=True)
+        return jsonify({"status": "success", "message": "Excel file opened successfully"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/open-excel-file', methods=['POST'])
+def open_excel_file():
+    """Open daily or master Excel tracking file"""
+    data = request.json
+    file_type = data.get('file_type')
+    
+    try:
+        if file_type == 'daily':
+            file_path = export_helper.DAILY_FILE
+            file_name = 'Daily'
+        elif file_type == 'master':
+            file_path = export_helper.MASTER_FILE
+            file_name = 'Master'
+        else:
+            return jsonify({"status": "error", "message": "Invalid file type"}), 400
+        
+        if not os.path.exists(file_path):
+            return jsonify({"status": "error", "message": f"{file_name} file not found"}), 404
+        
+        # Open the file with the default application (macOS)
+        subprocess.run(['open', file_path], check=True)
+        return jsonify({"status": "success", "message": f"{file_name} Excel file opened successfully"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/oauth2callback')
 def oauth2callback():

@@ -34,9 +34,6 @@
                 <button class="secondary-btn" onclick="reloadMap()" title="עדכן נתוני לקוח מקובץ אקסל">
                     <span class="btn-text">🔄 עדכן נתוני לקוח</span>
                 </button>
-                <button onclick="clearExport()" class="secondary-btn" style="background:#fef3c7; color:#92400e;">
-                    <span class="btn-text">נקה קובץ מעקב</span>
-                </button>
             </div>
         </header>
 
@@ -70,21 +67,38 @@
                     <div class="section-header">
                         <h3>📅 קובץ מעקב יומי (Daily)</h3>
                         <div class="actions">
+                            <button class="btn btn-sm" onclick="openExcelFile('daily')"
+                                style="background:#dcfce7; color:#166534; border-color:#bbf7d0;">📂 פתח קובץ</button>
+                            <button class="btn btn-sm" onclick="copyTableToClipboard('dailyTable')"
+                                style="background:#dbeafe; color:#1e40af; border-color:#bfdbfe;">📋 העתק טבלה</button>
                             <button id="delDailyBtn" class="btn btn-sm btn-danger hidden"
                                 onclick="deleteSelected('daily')">🗑️ מחק מסומנים</button>
                         </div>
                     </div>
-                    <div class="table-wrapper">
+                    <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
                         <table id="dailyTable">
                             <thead>
                                 <tr>
                                     <th style="width: 40px;"><input type="checkbox"
                                             onchange="toggleAll(this, 'dailyTable')"></th>
-                                    <th>Time</th>
-                                    <th>Account</th>
-                                    <th>Service</th>
-                                    <th>Impact</th>
-                                    <th>Status</th>
+                                    <th class="sortable" onclick="sortTable('dailyTable', 'time')">
+                                        Time <span class="sort-icon">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="sortTable('dailyTable', 'account')">
+                                        Account <span class="sort-icon">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="sortTable('dailyTable', 'service')">
+                                        Service <span class="sort-icon">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="sortTable('dailyTable', 'usagetype')">
+                                        Usage Type <span class="sort-icon">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="sortTable('dailyTable', 'impact')">
+                                        Impact <span class="sort-icon">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="sortTable('dailyTable', 'status')">
+                                        Status <span class="sort-icon">⇅</span>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -96,21 +110,38 @@
                     <div class="section-header">
                         <h3>📚 היסטוריה ראשית (Master)</h3>
                         <div class="actions">
+                            <button class="btn btn-sm" onclick="openExcelFile('master')"
+                                style="background:#dcfce7; color:#166534; border-color:#bbf7d0;">📂 פתח קובץ</button>
+                            <button class="btn btn-sm" onclick="copyTableToClipboard('masterTable')"
+                                style="background:#dbeafe; color:#1e40af; border-color:#bfdbfe;">📋 העתק טבלה</button>
                             <button id="delMasterBtn" class="btn btn-sm btn-danger hidden"
                                 onclick="deleteSelected('master')">🗑️ מחק מסומנים</button>
                         </div>
                     </div>
-                    <div class="table-wrapper">
+                    <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
                         <table id="masterTable">
                             <thead>
                                 <tr>
                                     <th style="width: 40px;"><input type="checkbox"
                                             onchange="toggleAll(this, 'masterTable')"></th>
-                                    <th>Time</th>
-                                    <th>Account</th>
-                                    <th>Service</th>
-                                    <th>Impact</th>
-                                    <th>Dates</th>
+                                    <th class="sortable" onclick="sortTable('masterTable', 'time')">
+                                        Time <span class="sort-icon">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="sortTable('masterTable', 'account')">
+                                        Account <span class="sort-icon">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="sortTable('masterTable', 'service')">
+                                        Service <span class="sort-icon">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="sortTable('masterTable', 'usagetype')">
+                                        Usage Type <span class="sort-icon">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="sortTable('masterTable', 'impact')">
+                                        Impact <span class="sort-icon">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="sortTable('masterTable', 'status')">
+                                        Status <span class="sort-icon">⇅</span>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -121,9 +152,36 @@
         </div>
     </div>
 
+    <div id="customerModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>👥 נתוני לקוחות</h3>
+                <button class="close-btn" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="filesFilter" placeholder="חיפוש חופשי..." class="search-box"
+                    onkeyup="filterCustomerTable()">
+                <div class="table-wrapper" style="max-height: 400px; overflow-y: auto;">
+                    <table id="customerTable">
+                        <thead>
+                            <tr>
+                                <th>Account ID</th>
+                                <th>Customer Name</th>
+                                <th>POC</th>
+                                <th>Operations Email</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const runBtn = document.getElementById('runBtn');
         const stopBtn = document.getElementById('stopBtn');
+        const customerModal = document.getElementById('customerModal');
         const runText = runBtn.querySelector('.btn-text');
         const loader = runBtn.querySelector('.loader');
         const container = document.getElementById('resultsContainer');
@@ -212,9 +270,22 @@
             try {
                 const res = await fetch('/api/reload-map', { method: 'POST' });
                 const data = await res.json();
+
                 if (data.status === 'success') {
                     appendLog(`✅ ${data.message}`);
-                    alert(data.message);
+                    showCustomerModal(data.data, data.count);
+
+                    // Open the Excel file after successful update
+                    try {
+                        const openRes = await fetch('/api/open-excel', { method: 'POST' });
+                        const openData = await openRes.json();
+                        if (openData.status === 'success') {
+                            appendLog(`📂 ${openData.message}`);
+                        }
+                    } catch (openErr) {
+                        console.error("Failed to open Excel:", openErr);
+                        appendLog(`⚠️ Could not open Excel file: ${openErr.message}`);
+                    }
                 } else {
                     appendLog(`❌ Error: ${data.message}`);
                     alert("Error: " + data.message);
@@ -222,6 +293,48 @@
             } catch (err) {
                 console.error(err);
                 appendLog(`❌ Failed to reload map: ${err}`);
+            }
+        }
+
+        function showCustomerModal(mapData, count) {
+            const tbody = document.querySelector('#customerTable tbody');
+            tbody.innerHTML = '';
+
+            // mapData is dict: {accId: {accountName, operationsEmail, pocName, customer} }
+
+            Object.keys(mapData).forEach(accId => {
+                const row = mapData[accId];
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                <td>${accId}</td>
+                <td>${row.accountName}</td>
+                <td>${row.pocName}</td>
+                <td>${row.operationsEmail}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.querySelector('#customerModal h3').textContent = `👥 נתוני לקוחות (${count} רשומות)`;
+            customerModal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            customerModal.classList.add('hidden');
+        }
+
+        function filterCustomerTable() {
+            const input = document.getElementById('filesFilter');
+            const filter = input.value.toLowerCase();
+            const table = document.getElementById('customerTable');
+            const tr = table.getElementsByTagName('tr');
+
+            for (let i = 1; i < tr.length; i++) {
+                let text = tr[i].textContent || tr[i].innerText;
+                if (text.toLowerCase().indexOf(filter) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
             }
         }
 
@@ -253,8 +366,14 @@
                     else alert(data.message);
 
                 } else if (data.status === 'daily_duplicate') {
+                    const alertMsg = `⚠️ אנומליה זו כבר קיימת בקובץ היומי!\n\nפרטי האנומליה:\n` +
+                        `• חשבון: ${accountName} (${accountId})\n` +
+                        `• שירות: ${services}\n` +
+                        `• סוג שימוש: ${usageType}\n` +
+                        `• תאריכים: ${startDate} - ${endDate}\n` +
+                        `• סכום: ${totalImpact}`;
                     appendLog(`⚠️ ${data.message}`);
-                    alert(data.message);
+                    alert(alertMsg);
 
                 } else if (data.status === 'master_duplicate') {
                     // Highlight existing row first so user can see it
@@ -262,7 +381,16 @@
 
                     // Delay confirmation slightly to allow tab switch
                     setTimeout(() => {
-                        if (confirm(data.message)) {
+                        const alertMsg = `⚠️ אנומליה זו קיימת בהיסטוריה!\n\nפרטי האנומליה:\n` +
+                            `• חשבון: ${accountName} (${accountId})\n` +
+                            `• שירות: ${services}\n` +
+                            `• סוג שימוש: ${usageType}\n` +
+                            `• תאריכים: ${startDate} - ${endDate}\n` +
+                            `• סכום: ${totalImpact}\n\n` +
+                            `הוספה ראשונה: ${data.existing_date}\n\n` +
+                            `האם להוסיף בכל זאת?`;
+
+                        if (confirm(alertMsg)) {
                             // User said YES -> Call again with force=true
                             exportAnomaly(companyName, accountName, accountId, startDate, endDate, totalImpact, services, region, usageType, true);
                         } else {
@@ -307,6 +435,75 @@
             loader.classList.add('hidden');
             stopBtn.classList.add('hidden');
             stopBtn.disabled = false;
+        }
+
+        // Open Excel file
+        async function openExcelFile(type) {
+            const fileName = type === 'daily' ? 'daily_anomalies.xlsx' : 'master_anomalies.xlsx';
+            try {
+                const res = await fetch('/api/open-excel-file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file_type: type })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    appendLog(`📂 ${data.message}`);
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error opening file: ' + err.message);
+            }
+        }
+
+        // Copy table to clipboard with formatting
+        async function copyTableToClipboard(tableId) {
+            const table = document.getElementById(tableId);
+            const rows = table.querySelectorAll('tr');
+
+            // Build HTML table
+            let html = '<table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; font-family:Arial; font-size:12px;">';
+
+            rows.forEach((row, rowIndex) => {
+                html += '<tr>';
+                const cells = row.querySelectorAll('th, td');
+                cells.forEach((cell, cellIndex) => {
+                    // Skip checkbox column (first column)
+                    if (cellIndex === 0) return;
+
+                    const tag = row.querySelector('th') ? 'th' : 'td';
+                    const bgColor = row.querySelector('th') ? '#f3f4f6' : '#ffffff';
+                    const textAlign = 'right';
+
+                    // Get cell content, handling select elements
+                    let content = '';
+                    const select = cell.querySelector('select');
+                    if (select) {
+                        content = select.options[select.selectedIndex].text;
+                    } else {
+                        content = cell.textContent.trim();
+                    }
+
+                    html += `<${tag} style="background:${bgColor}; padding:8px; text-align:${textAlign}; border:1px solid #d1d5db;">${content}</${tag}>`;
+                });
+                html += '</tr>';
+            });
+
+            html += '</table>';
+
+            // Copy to clipboard
+            try {
+                const blob = new Blob([html], { type: 'text/html' });
+                const clipboardItem = new ClipboardItem({ 'text/html': blob });
+                await navigator.clipboard.write([clipboardItem]);
+                appendLog('✅ טבלה הועתקה ללוח - אפשר להדביק במייל');
+                alert('טבלה הועתקה בהצלחה! אפשר להדביק במייל (Ctrl+V / Cmd+V)');
+            } catch (err) {
+                console.error('Copy failed:', err);
+                alert('שגיאה בהעתקה. נסה שוב או השתמש בדפדפן אחר.');
+            }
         }
 
         // --- Delete Logic ---
@@ -416,7 +613,7 @@
 
                 // Fields mapping based on table type
                 // daily: Time, Account, Service, Impact, Status
-                // master: Time, Account, Service, Impact, Dates
+                // master: Time, Account, Service, Impact, Status (editable)
 
                 let cells = '';
                 const accDisplay = `${row['Account Name']} (${row['Account ID']})`;
@@ -428,17 +625,30 @@
                         <td>${row.Timestamp}</td>
                         <td>${accDisplay}</td>
                         <td>${row.Services}</td>
+                        <td>${row['Usage Type'] || ''}</td>
                         <td>${row['Total Impact']}</td>
                         <td>${row.Status}</td>
                      `;
                 } else {
+                    // Master table - Status is editable with dropdown
+                    const statusValue = row.Status || 'נשלח ללקוח';
+                    const statusId = `status-${row.Timestamp.replace(/[: ]/g, '-')}`;
                     cells = `
                         ${checkbox}
                         <td>${row.Timestamp}</td>
                         <td>${accDisplay}</td>
                         <td>${row.Services}</td>
+                        <td>${row['Usage Type'] || ''}</td>
                         <td>${row['Total Impact']}</td>
-                        <td>${row['Start Date']}</td>
+                        <td>
+                            <select id="${statusId}" 
+                                    onchange="updateStatus('${row.Timestamp}', this.value)"
+                                    style="width:100%; padding:4px; border:1px solid #d1d5db; border-radius:4px; background:white;">
+                                <option value="נשלח ללקוח" ${statusValue === 'נשלח ללקוח' ? 'selected' : ''}>נשלח ללקוח</option>
+                                <option value="המשך אנומליה" ${statusValue === 'המשך אנומליה' ? 'selected' : ''}>המשך אנומליה</option>
+                                <option value="לא נשלח (לעקוב)" ${statusValue === 'לא נשלח (לעקוב)' ? 'selected' : ''}>לא נשלח (לעקוב)</option>
+                            </select>
+                        </td>
                      `;
                 }
                 tr.innerHTML = cells;
@@ -461,6 +671,28 @@
             }, 500); // Wait for render
         }
 
+        // Update Status in Master table
+        async function updateStatus(timestamp, newStatus) {
+            try {
+                const res = await fetch('/api/update-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ timestamp: timestamp, status: newStatus })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    appendLog(`✅ Status updated for ${timestamp}`);
+                } else {
+                    appendLog(`❌ Failed to update status: ${data.message}`);
+                    alert('Error updating status: ' + data.message);
+                }
+            } catch (err) {
+                console.error(err);
+                appendLog(`❌ Error: ${err.message}`);
+                alert('Error: ' + err.message);
+            }
+        }
+
         // Helper for toggling sections
         function toggleSection(id, btn) {
             const el = document.getElementById(id);
@@ -471,6 +703,89 @@
                 el.style.display = 'none';
                 if (btn) btn.classList.remove('active');
             }
+        }
+
+        // Table sorting functionality
+        const tableSortState = {
+            dailyTable: { column: null, ascending: true },
+            masterTable: { column: null, ascending: true }
+        };
+
+        function sortTable(tableId, column) {
+            const state = tableSortState[tableId];
+
+            // Toggle direction if same column, otherwise reset to ascending
+            if (state.column === column) {
+                state.ascending = !state.ascending;
+            } else {
+                state.column = column;
+                state.ascending = true;
+            }
+
+            const table = document.getElementById(tableId);
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+
+            // Column index mapping
+            const columnMap = {
+                dailyTable: { time: 1, account: 2, service: 3, usagetype: 4, impact: 5, status: 6 },
+                masterTable: { time: 1, account: 2, service: 3, usagetype: 4, impact: 5, status: 6 }
+            };
+
+            const colIndex = columnMap[tableId][column];
+
+            // Sort rows
+            rows.sort((a, b) => {
+                let aVal = a.cells[colIndex].textContent.trim();
+                let bVal = b.cells[colIndex].textContent.trim();
+
+                // Handle different data types
+                if (column === 'time' || column === 'dates') {
+                    // Date comparison
+                    aVal = new Date(aVal);
+                    bVal = new Date(bVal);
+                } else if (column === 'impact') {
+                    // Numeric comparison (extract number from string like "$123.45")
+                    aVal = parseFloat(aVal.replace(/[^0-9.-]/g, '')) || 0;
+                    bVal = parseFloat(bVal.replace(/[^0-9.-]/g, '')) || 0;
+                } else {
+                    // String comparison (case-insensitive)
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                }
+
+                if (aVal < bVal) return state.ascending ? -1 : 1;
+                if (aVal > bVal) return state.ascending ? 1 : -1;
+                return 0;
+            });
+
+            // Re-append sorted rows
+            rows.forEach(row => tbody.appendChild(row));
+
+            // Update sort icons
+            updateSortIcons(tableId, column, state.ascending);
+        }
+
+        function updateSortIcons(tableId, activeColumn, ascending) {
+            const table = document.getElementById(tableId);
+            const headers = table.querySelectorAll('th.sortable');
+
+            headers.forEach(th => {
+                const icon = th.querySelector('.sort-icon');
+                const columnName = th.onclick.toString().match(/'([^']+)'\)$/)[1];
+
+                if (columnName === activeColumn) {
+                    // Active column - show direction
+                    icon.textContent = ascending ? '↑' : '↓';
+                    icon.style.opacity = '1';
+                    th.style.fontWeight = 'bold';
+                } else {
+                    // Inactive columns - show neutral
+                    icon.textContent = '⇅';
+                    icon.style.opacity = '0.3';
+                    th.style.fontWeight = 'normal';
+                }
+            });
         }
     </script>
 </body>

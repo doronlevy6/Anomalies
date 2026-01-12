@@ -22,7 +22,8 @@ def load_excel(file_path):
 def check_duplicate(df, data):
     """
     Checks if anomaly exists in the dataframe.
-    Key: Account ID, Region, Services, Usage Type, Start Date, Total Impact.
+    Key: Account ID, Service, Usage Type, Region, Start Date.
+    Note: Total Impact is NOT part of duplicate detection.
     """
     if df.empty:
         return None
@@ -32,8 +33,7 @@ def check_duplicate(df, data):
         (df['Region'] == data['region']) &
         (df['Services'] == data['services']) & 
         (df['Usage Type'] == data['usage_type']) &
-        (df['Start Date'] == data['start_date']) &
-        (df['Total Impact'] == data['total_impact'])
+        (df['Start Date'] == data['start_date'])
     )
     
     matches = df[mask]
@@ -64,7 +64,7 @@ def export_anomaly(data, force_master=False):
         'Services': data.get('services', ''),
         'Usage Type': data.get('usage_type', ''),
         'Total Impact': data.get('total_impact'),
-        'Status': data.get('status', 'Not yet handled')
+        'Status': data.get('status', 'נשלח ללקוח')
     }
     
     # 1. Check Daily
@@ -126,3 +126,24 @@ def get_tracking_data():
         "daily": daily_df.to_dict(orient='records'),
         "master": master_df.to_dict(orient='records')
     }
+
+def update_status(timestamp, new_status):
+    """Updates the Status field for a specific row in Master table."""
+    df = load_excel(MASTER_FILE)
+    
+    if df.empty:
+        return False
+    
+    # Find the row with matching timestamp
+    mask = df['Timestamp'].astype(str) == str(timestamp)
+    
+    if not mask.any():
+        return False
+    
+    # Update the Status field
+    df.loc[mask, 'Status'] = new_status
+    
+    # Save back to Excel
+    df.to_excel(MASTER_FILE, index=False)
+    
+    return True

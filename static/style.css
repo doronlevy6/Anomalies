@@ -397,6 +397,11 @@ pre {
     margin-bottom: 20px;
     border-bottom: 2px solid #e5e7eb;
     padding-bottom: 12px;
+    position: sticky;
+    top: 0;
+    background-color: var(--bg-color);
+    z-index: 100;
+    padding-top: 12px;
 }
 
 .tab-btn {
@@ -518,4 +523,27 @@ tr:hover {
     border-color: #94a3b8;
     color: #1e293b;
     transform: translateY(-1px);
+}
+
+/* Sortable Table Headers */
+th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease;
+}
+
+th.sortable:hover {
+    background: #e5e7eb;
+}
+
+.sort-icon {
+    display: inline-block;
+    margin-right: 4px;
+    font-size: 0.75rem;
+    opacity: 0.3;
+    transition: opacity 0.2s ease;
+}
+
+th.sortable:hover .sort-icon {
+    opacity: 0.6;
 }
