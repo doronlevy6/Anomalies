@@ -7,7 +7,7 @@
 
 import queue
 from nodes.config import load_config
-from nodes.services import get_gmail_service, get_bedrock_client
+from nodes.services import get_gmail_service, get_bedrock_client, get_or_create_label, add_label_to_message
 from nodes.email_processing import clean_html, extract_email_body, extract_original_metadata
 from nodes.account_manager import load_account_map, get_account_map, extract_account_id, ACCOUNT_MAP
 from nodes.splitting_logic import split_reseller_email, split_email_by_anomalies, deduplicate_usage_types
@@ -51,6 +51,13 @@ def run_anomalies_workflow(ctx: WorkflowContext, limit=15):
     except Exception as e:
         ctx.log(f"Error authenticating AWS: {e}")
         raise e
+
+    # Ensure label exists
+    label_id = get_or_create_label(service, 'fetched')
+    if label_id:
+        ctx.log(f"Using label 'fetched' (ID: {label_id})")
+    else:
+        ctx.log("Warning: Could not create/find 'fetched' label. Tagging will be skipped.")
     
     # Node: Gmail Trigger
     ctx.log("--- Node: Gmail Trigger (Search) ---")
@@ -203,6 +210,11 @@ def run_anomalies_workflow(ctx: WorkflowContext, limit=15):
             html_card = generate_html_card(ctx, final_data, f"{i}_{idx}")
             
             cards.append(html_card)
+
+        # Tag as fetched
+        if label_id:
+            add_label_to_message(service, 'me', msg['id'], label_id)
+            ctx.log(f"  > Tagged message {msg['id']} as 'fetched'")
     
     ctx.log(f"--- Finished Analysis. Generated {len(cards)} cards. ---")
     return cards

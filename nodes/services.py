@@ -90,6 +90,31 @@ def get_gmail_service():
 
     return build('gmail', 'v1', credentials=creds)
 
+def get_or_create_label(service, label_name):
+    try:
+        results = service.users().labels().list(userId='me').execute()
+        labels = results.get('labels', [])
+        for label in labels:
+            if label['name'].lower() == label_name.lower():
+                return label['id']
+        
+        # Create
+        label_object = {'name': label_name, 'labelListVisibility': 'labelShow', 'messageListVisibility': 'show'}
+        created_label = service.users().labels().create(userId='me', body=label_object).execute()
+        return created_label['id']
+    except Exception as e:
+        print(f"Error getting/creating label: {e}")
+        return None
+
+def add_label_to_message(service, user_id, msg_id, label_id):
+    try:
+        body = {'addLabelIds': [label_id], 'removeLabelIds': []}
+        service.users().messages().modify(userId=user_id, id=msg_id, body=body).execute()
+        return True
+    except Exception as e:
+        print(f"Error labeling message {msg_id}: {e}")
+        return False
+
 # --- AWS Bedrock Service ---
 def get_bedrock_client():
     config = load_config()
