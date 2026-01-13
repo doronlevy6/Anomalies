@@ -17,7 +17,7 @@ from flask import Flask, render_template, jsonify, Response, stream_with_context
 
 # from workflow_logic import run_workflow 
 import anomalies_logic
-import alerts_logic
+# import alerts_logic # Removed per user request
 
 app = Flask(__name__)
 
@@ -37,10 +37,10 @@ class JobManager:
             
             def wrapper(ctx):
                 try:
-                    if mode == 'alerts':
-                        cards = alerts_logic.run_alerts_workflow(ctx)
-                    else:
-                        cards = anomalies_logic.run_anomalies_workflow(ctx, limit=limit)
+                    # if mode == 'alerts':
+                    #    cards = alerts_logic.run_alerts_workflow(ctx)
+                    # else:
+                    cards = anomalies_logic.run_anomalies_workflow(ctx, limit=limit)
                     
                     ctx.msg_queue.put({"type": "result", "cards": cards})
                 except Exception as e:
@@ -96,13 +96,13 @@ def run_analysis():
     else:
         return jsonify({"status": "busy", "message": msg}), 409
 
-@app.route('/api/run-alerts', methods=['POST'])
-def run_alerts():
-    success, msg = job_manager.start_job(mode='alerts')
-    if success:
-        return jsonify({"status": "started"}), 202
-    else:
-        return jsonify({"status": "busy", "message": msg}), 409
+# @app.route('/api/run-alerts', methods=['POST'])
+# def run_alerts():
+#     success, msg = job_manager.start_job(mode='alerts')
+#     if success:
+#         return jsonify({"status": "started"}), 202
+#     else:
+#         return jsonify({"status": "busy", "message": msg}), 409
 
 @app.route('/api/stop', methods=['POST'])
 def stop_analysis():
@@ -118,7 +118,8 @@ def stream():
 def reload_map():
     try:
         count = anomalies_logic.load_account_map()
-        alerts_logic.load_account_map_independent()
+        count = anomalies_logic.load_account_map()
+        # alerts_logic.load_account_map_independent() # Removed per user request
         
         # Auto-open the file for visibility
         excel_path = os.path.join(os.path.dirname(__file__), 'templates', 'mailsToFlow1.xlsx')
