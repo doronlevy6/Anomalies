@@ -28,36 +28,57 @@ The system is designed as a modular pipeline, orchestrated by `anomalies_logic.p
 
 ### Visual Workflow
 
-```mermaid
-graph TD
-    A[Start] --> B[Gmail Service]
-    B --> C{Trigger: Search Emails}
-    C -->|Found Emails| D[Fetch & Clean Content]
-    D --> E[Metadata Extraction]
-    E --> F[Account Identification]
-    F --> G{Route Selection}
-    
-    G -->|Reseller| H[Split by Member Account]
-    G -->|Standard| I[Split by Anomaly Date]
-    
-    H --> J[Deduplicate Usage Types]
-    I --> J
-    
-    J --> K[LLM Analysis (Bedrock)]
-    K --> L[Generate HTML Card]
-    L --> M[End]
-    
-    subgraph Nodes Directory
-        B
-        D
-        E
-        F
-        H
-        I
-        J
-        K
-        L
-    end
+### Visual Workflow
+
+```text
+┌─────────────────┐
+│     START       │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐      ┌──────────────────┐
+│  Gmail Service  │ ───► │  Search Trigger  │
+└─────────────────┘      └────────┬─────────┘
+                                  │
+                                  ▼
+                         ┌──────────────────┐
+                         │   Fetch Content  │
+                         └────────┬─────────┘
+                                  │
+                                  ▼
+                         ┌──────────────────┐
+                         │ Metadata Extract │
+                         └────────┬─────────┘
+                                  │
+                                  ▼
+                         ┌──────────────────┐
+                         │ Identify Account │
+                         └────────┬─────────┘
+                                  │
+                  ┌───────────────┴───────────────┐
+                  ▼                               ▼
+        ┌──────────────────┐            ┌──────────────────┐
+        │    RESELLER      │            │     STANDARD     │
+        │ (Split by Acct)  │            │ (Split by Date)  │
+        └─────────┬────────┘            └─────────┬────────┘
+                  │                               │
+                  └───────────────┬───────────────┘
+                                  │
+                                  ▼
+                         ┌──────────────────┐
+                         │   Deduplicate    │
+                         └────────┬─────────┘
+                                  │
+                                  ▼
+                         ┌──────────────────┐
+                         │   LLM Analysis   │
+                         │    (Bedrock)     │
+                         └────────┬─────────┘
+                                  │
+                                  ▼
+                         ┌──────────────────┐
+                         │  Generate Cards  │
+                         └──────────────────┘
 ```
 
 ### Component Roles
