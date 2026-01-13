@@ -64,7 +64,7 @@ def export_anomaly(data, force_master=False):
         'Services': data.get('services', ''),
         'Usage Type': data.get('usage_type', ''),
         'Total Impact': data.get('total_impact'),
-        'Status': data.get('status', 'נשלח ללקוח')
+        'Status': data.get('status', 'Sent')
     }
     
     # 1. Check Daily

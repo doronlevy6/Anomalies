@@ -647,20 +647,21 @@
                             <select id="${statusId}" 
                                     onchange="updateStatus('${row.Timestamp}', this.value, 'daily')"
                                     style="width:100%; padding:4px; border:1px solid #d1d5db; border-radius:4px; background:white;">
-                                <option value="" ${statusValue === '' ? 'selected' : ''}>בחר סטטוס...</option>
-                                <option value="נשלח ללקוח" ${statusValue === 'נשלח ללקוח' ? 'selected' : ''}>נשלח ללקוח</option>
-                                <option value="המשך אנומליה" ${statusValue === 'המשך אנומליה' ? 'selected' : ''}>המשך אנומליה</option>
-                                <option value="לא נשלח (לעקוב)" ${statusValue === 'לא נשלח (לעקוב)' ? 'selected' : ''}>לא נשלח (לעקוב)</option>
-                                <option value="הלקוח יודע-פעילות חדשה" ${statusValue === 'הלקוח יודע-פעילות חדשה' ? 'selected' : ''}>הלקוח יודע-פעילות חדשה</option>
-                                <option value="הלקוח יודע -תגבור פעילות קיימת" ${statusValue === 'הלקוח יודע -תגבור פעילות קיימת' ? 'selected' : ''}>הלקוח יודע -תגבור פעילות קיימת</option>
-                                <option value="הלקוח בודק" ${statusValue === 'הלקוח בודק' ? 'selected' : ''}>הלקוח בודק</option>
-                                <option value="הלקוח ביקש שנבדוק" ${statusValue === 'הלקוח ביקש שנבדוק' ? 'selected' : ''}>הלקוח ביקש שנבדוק</option>
+                                <option value="" ${statusValue === '' ? 'selected' : ''}>Select Status...</option>
+                                <option value="Sent" ${statusValue === 'Sent' || statusValue === 'נשלח ללקוח' ? 'selected' : ''}>Sent</option>
+                                <option value="Ongoing" ${statusValue === 'Ongoing' || statusValue === 'המשך אנומליה' ? 'selected' : ''}>Ongoing</option>
+                                <option value="Watchlist" ${statusValue === 'Watchlist' || statusValue === 'לא נשלח (לעקוב)' ? 'selected' : ''}>Watchlist</option>
+                                <option value="Aware - New" ${statusValue === 'Aware - New' || statusValue === 'הלקוח יודע-פעילות חדשה' ? 'selected' : ''}>Aware - New</option>
+                                <option value="Aware - Scaling" ${statusValue === 'Aware - Scaling' || statusValue === 'הלקוח יודע -תגבור פעילות קיימת' ? 'selected' : ''}>Aware - Scaling</option>
+                                <option value="Checking" ${statusValue === 'Checking' || statusValue === 'הלקוח בודק' ? 'selected' : ''}>Checking</option>
+                                <option value="Investigating" ${statusValue === 'Investigating' || statusValue === 'הלקוח ביקש שנבדוק' ? 'selected' : ''}>Investigating</option>
+                                <option value="Acknowledged" ${statusValue === 'Acknowledged' ? 'selected' : ''}>Acknowledged</option>
                             </select>
                         </td>
                      `;
                 } else {
                     // Master table - Status is editable with dropdown
-                    const statusValue = row.Status || 'נשלח ללקוח';
+                    const statusValue = row.Status || 'Sent';
                     const statusId = `status-${row.Timestamp.replace(/[: ]/g, '-')}`;
                     cells = `
                         ${checkbox}
@@ -673,13 +674,14 @@
                             <select id="${statusId}" 
                                     onchange="updateStatus('${row.Timestamp}', this.value, 'master')"
                                     style="width:100%; padding:4px; border:1px solid #d1d5db; border-radius:4px; background:white;">
-                                <option value="נשלח ללקוח" ${statusValue === 'נשלח ללקוח' ? 'selected' : ''}>נשלח ללקוח</option>
-                                <option value="המשך אנומליה" ${statusValue === 'המשך אנומליה' ? 'selected' : ''}>המשך אנומליה</option>
-                                <option value="לא נשלח (לעקוב)" ${statusValue === 'לא נשלח (לעקוב)' ? 'selected' : ''}>לא נשלח (לעקוב)</option>
-                                <option value="הלקוח יודע-פעילות חדשה" ${statusValue === 'הלקוח יודע-פעילות חדשה' ? 'selected' : ''}>הלקוח יודע-פעילות חדשה</option>
-                                <option value="הלקוח יודע -תגבור פעילות קיימת" ${statusValue === 'הלקוח יודע -תגבור פעילות קיימת' ? 'selected' : ''}>הלקוח יודע -תגבור פעילות קיימת</option>
-                                <option value="הלקוח בודק" ${statusValue === 'הלקוח בודק' ? 'selected' : ''}>הלקוח בודק</option>
-                                <option value="הלקוח ביקש שנבדוק" ${statusValue === 'הלקוח ביקש שנבדוק' ? 'selected' : ''}>הלקוח ביקש שנבדוק</option>
+                                <option value="Sent" ${statusValue === 'Sent' || statusValue === 'נשלח ללקוח' ? 'selected' : ''}>Sent</option>
+                                <option value="Ongoing" ${statusValue === 'Ongoing' || statusValue === 'המשך אנומליה' ? 'selected' : ''}>Ongoing</option>
+                                <option value="Watchlist" ${statusValue === 'Watchlist' || statusValue === 'לא נשלח (לעקוב)' ? 'selected' : ''}>Watchlist</option>
+                                <option value="Aware - New" ${statusValue === 'Aware - New' || statusValue === 'הלקוח יודע-פעילות חדשה' ? 'selected' : ''}>Aware - New</option>
+                                <option value="Aware - Scaling" ${statusValue === 'Aware - Scaling' || statusValue === 'הלקוח יודע -תגבור פעילות קיימת' ? 'selected' : ''}>Aware - Scaling</option>
+                                <option value="Checking" ${statusValue === 'Checking' || statusValue === 'הלקוח בודק' ? 'selected' : ''}>Checking</option>
+                                <option value="Investigating" ${statusValue === 'Investigating' || statusValue === 'הלקוח ביקש שנבדוק' ? 'selected' : ''}>Investigating</option>
+                                <option value="Acknowledged" ${statusValue === 'Acknowledged' ? 'selected' : ''}>Acknowledged</option>
                             </select>
                         </td>
                      `;
