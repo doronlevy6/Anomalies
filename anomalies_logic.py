@@ -1,9 +1,5 @@
 
-# We must re-export everything app.py expects from anomalies_logic
-# 1. WorkflowContext class
-# 2. run_anomalies_workflow function
-# 3. load_account_map function (for reload-map)
-# 4. get_account_map (optional, but good practice)
+# Unified Workflow Orchestrator - Handles Cost Anomaly AND Budget Alerts
 
 import queue
 from nodes.config import load_config
@@ -12,6 +8,8 @@ from nodes.email_processing import clean_html, extract_email_body, extract_origi
 from nodes.account_manager import load_account_map, get_account_map, extract_account_id, ACCOUNT_MAP
 from nodes.splitting_logic import split_reseller_email, split_email_by_anomalies, deduplicate_usage_types
 from nodes.llm_engine import invoke_llm, parse_llm_response
+from nodes.budget_llm_engine import invoke_budget_llm, parse_budget_llm_response
+from nodes.classifier import classify_email
 from nodes.ui_generator import generate_html_card
 
 # --- Global Context ---
@@ -30,9 +28,9 @@ class WorkflowContext:
     def request_stop(self):
         self._stop_event = True
 
-# --- Main Workflow ---
+# --- Main Unified Workflow ---
 def run_anomalies_workflow(ctx: WorkflowContext, limit=15):
-    ctx.log("--- Starting Analysis ---")
+    ctx.log("--- Starting Unified Analysis (Anomaly + Budget) ---")
     
     if ctx.should_stop(): return []
     
@@ -52,45 +50,47 @@ def run_anomalies_workflow(ctx: WorkflowContext, limit=15):
         ctx.log(f"Error authenticating AWS: {e}")
         raise e
 
-    # Ensure label exists
-    label_id = get_or_create_label(service, 'fetched')
-    if label_id:
-        ctx.log(f"Using label 'fetched' (ID: {label_id})")
-    else:
-        ctx.log("Warning: Could not create/find 'fetched' label. Tagging will be skipped.")
+    # Ensure labels exist
+    fetched_label_id = get_or_create_label(service, 'fetched', '83a598')  # Blue-gray
+    budget_label_id = get_or_create_label(service, 'budget', 'fb4934')    # Red
     
-    # Node: Gmail Trigger
-    ctx.log("--- Node: Gmail Trigger (Search) ---")
-    query = 'in:inbox -label:fetched subject:"Cost anomaly"'
-    ctx.log(f"Searching for emails with query: '{query}' (Limit: {limit})...")
+    if fetched_label_id:
+        ctx.log(f"Label 'fetched' ready (ID: {fetched_label_id})")
+    if budget_label_id:
+        ctx.log(f"Label 'budget' ready (ID: {budget_label_id})")
+    
+    # Node: Gmail Trigger - UNIFIED QUERY
+    ctx.log("--- Node: Gmail Trigger (Unified Search) ---")
+    query = 'in:inbox -label:fetched -label:budget (subject:"Cost anomaly" OR subject:"AWS Budgets" OR from:budgets@costalerts.amazonaws.com)'
+    ctx.log(f"Searching with query: '{query}' (Limit: {limit})...")
     results = service.users().messages().list(userId='me', q=query, maxResults=limit).execute()
     messages = results.get('messages', [])
     ctx.log(f"Found {len(messages)} messages.")
     
-    # DEBUG: Print all subjects found to help debug "Waller" issue
+    # DEBUG: Print all subjects
     if messages:
-        ctx.log("\n--- DEBUG: Incoming Messages List ---")
+        ctx.log("\n--- Incoming Messages ---")
         for i, m in enumerate(messages):
             try:
                 msg_detail = service.users().messages().get(userId='me', id=m['id'], format='metadata').execute()
                 headers = {h['name'].lower(): h['value'] for h in msg_detail['payload']['headers']}
                 subject = headers.get('subject', 'No Subject')
-                ctx.log(f"[{i+1}] ID: {m['id']} | Subject: {subject}")
+                sender = headers.get('from', '')
+                ctx.log(f"[{i+1}] {subject[:60]}...")
             except Exception as e:
-                ctx.log(f"[{i+1}] ID: {m['id']} | Error fetching metadata: {e}")
-        ctx.log("-------------------------------------\n")
+                ctx.log(f"[{i+1}] Error: {e}")
+        ctx.log("-------------------------\n")
     
     cards = []
     
     for i, msg in enumerate(messages):
         if ctx.should_stop():
-            ctx.log("Execution stopped before processing all messages.")
+            ctx.log("Execution stopped.")
             break
             
         ctx.log(f"\n--- Processing Message {i+1}/{len(messages)} ---")
         
         # Node: Fetch Content
-        ctx.log("--- Node: Fetch Email Content ---")
         m = service.users().messages().get(userId='me', id=msg['id'], format='full').execute()
         payload = m['payload']
         headers = {h['name'].lower(): h['value'] for h in payload.get('headers', [])}
@@ -108,116 +108,128 @@ def run_anomalies_workflow(ctx: WorkflowContext, limit=15):
             'date': headers.get('date', '')
         }
         
-        # Node: Metadata Extraction
-        ctx.log("--- Node: Metadata Extraction ---")
+        # Node: Classify Email Type
+        classification = classify_email(email_data['fromAddress'], email_data['subject'])
+        message_family = classification['family']
+        target_label = classification['label']
+        
+        ctx.log(f"  > Classified as: {message_family} → label: {target_label}")
+        email_data['message_family'] = message_family
+        
+        # Skip unknown types
+        if message_family == 'unknown':
+            ctx.log(f"  > Skipping unknown email type")
+            continue
+        
+        # Node: Metadata Extraction (for forwarded emails)
         orig_meta = extract_original_metadata(body_text, headers)
         if orig_meta:
-            ctx.log(f"  > Detected forwarded email. Overwriting metadata: {orig_meta}")
+            ctx.log(f"  > Detected forwarded email. Updating metadata.")
             email_data.update(orig_meta)
         
         if ctx.should_stop(): break
         
-        # Node: Account Identification (Routing)
-        ctx.log("--- Node: Account Identification & Routing ---")
+        # Node: Account Identification
         active_account_id = extract_account_id(email_data.get('subject', '')) or extract_account_id(email_data.get('bodyText', ''))
-        
-        # Look up in Account Map
         account_info = ACCOUNT_MAP.get(active_account_id, {})
         account_name = account_info.get('accountName', 'Unknown')
         poc_name = account_info.get('pocName', 'Customer')
         
-        ctx.log(f"  > Identified Account: {active_account_id} ({account_name})")
+        ctx.log(f"  > Account: {active_account_id} ({account_name})")
         
         email_data['extracted_account_id'] = active_account_id
         email_data['account_name'] = account_name
         email_data['poc_name'] = poc_name
         
-        # Determine Route
-        is_reseller = (active_account_id == '262674733103')
-        route_name = "RESELLER (Multi-Account)" if is_reseller else "STANDARD (Single Account)"
-        ctx.log(f"  > Selected Route: {route_name}")
+        # ============================================
+        # BRANCH: Cost Anomaly vs Budget/RI
+        # ============================================
         
-        # Build processing queue
-        processing_queue = []
-        
-        if is_reseller:
-            # Use deterministic regex splitter for Reseller (splits by Member Account)
-            ctx.log("--- Node: Splitting Reseller Email ---")
-            split_results = split_reseller_email(email_data.get('bodyText', ''))
-            ctx.log(f"  > Found {len(split_results)} Member Accounts in email")
+        if message_family == 'cost_anomaly':
+            # --- COST ANOMALY FLOW ---
+            ctx.log("  > Route: COST ANOMALY")
             
-            # Deduplicate same usage types
-            ctx.log("--- Node: Deduplicating Usage Types ---")
-            split_results = deduplicate_usage_types(split_results, email_data.get('bodyText', ''))
-            ctx.log(f"  > After deduplication: {len(split_results)} unique anomalies")
+            # Determine sub-route (Reseller vs Standard)
+            is_reseller = (active_account_id == '262674733103')
             
-            for split_item in split_results:
-                processing_queue.append({
-                    'account_id': split_item['account_id'],
-                    'account_name': split_item['account_name'],
-                    'text_block': split_item['text_block']
-                })
-        else:
-            # Standard: split by anomalies (Start Date markers) and deduplicate
-            ctx.log("--- Node: Splitting Standard Email by Anomalies ---")
-            split_results = split_email_by_anomalies(email_data.get('bodyText', ''), active_account_id, account_name)
-            ctx.log(f"  > Found {len(split_results)} anomalies in email")
+            processing_queue = []
             
-            # Deduplicate same usage types (in case of multiple monitors)
-            if len(split_results) > 1:
-                ctx.log("--- Node: Deduplicating Usage Types ---")
+            if is_reseller:
+                ctx.log("  > Splitting Reseller email...")
+                split_results = split_reseller_email(email_data.get('bodyText', ''))
                 split_results = deduplicate_usage_types(split_results, email_data.get('bodyText', ''))
-                ctx.log(f"  > After deduplication: {len(split_results)} unique anomalies")
-            
-            for split_item in split_results:
-                processing_queue.append({
-                    'account_id': split_item['account_id'],
-                    'account_name': split_item['account_name'],
-                    'text_block': split_item['text_block']
-                })
-        
-        # Iterate Queue and Invoke LLM for each
-        for idx, item in enumerate(processing_queue):
-            if ctx.should_stop(): break
-            
-            ctx.log(f"  > Processing Anomaly {idx+1}/{len(processing_queue)}: Account {item['account_id']}...")
-            
-            # Enrich context for LLM
-            current_email_data = email_data.copy()
-            current_email_data['bodyText'] = item['text_block']
-            current_email_data['extracted_account_id'] = item['account_id']
-            
-            # Use specific name if available from split, else fallback to map or generic
-            if item.get('account_name'):
-                current_email_data['account_name'] = item.get('account_name')
+                ctx.log(f"  > {len(split_results)} unique anomalies")
+                
+                for split_item in split_results:
+                    processing_queue.append({
+                        'account_id': split_item['account_id'],
+                        'account_name': split_item['account_name'],
+                        'text_block': split_item['text_block']
+                    })
             else:
-                info = ACCOUNT_MAP.get(item['account_id'], {})
-                current_email_data['account_name'] = info.get('accountName', 'Unknown')
-                current_email_data['poc_name'] = info.get('pocName', 'Customer')
+                ctx.log("  > Splitting Standard email...")
+                split_results = split_email_by_anomalies(email_data.get('bodyText', ''), active_account_id, account_name)
+                if len(split_results) > 1:
+                    split_results = deduplicate_usage_types(split_results, email_data.get('bodyText', ''))
+                ctx.log(f"  > {len(split_results)} unique anomalies")
+                
+                for split_item in split_results:
+                    processing_queue.append({
+                        'account_id': split_item['account_id'],
+                        'account_name': split_item['account_name'],
+                        'text_block': split_item['text_block']
+                    })
+            
+            # Process each anomaly
+            for idx, item in enumerate(processing_queue):
+                if ctx.should_stop(): break
+                
+                ctx.log(f"  > Processing Anomaly {idx+1}/{len(processing_queue)}: {item['account_id']}...")
+                
+                current_email_data = email_data.copy()
+                current_email_data['bodyText'] = item['text_block']
+                current_email_data['extracted_account_id'] = item['account_id']
+                
+                if item.get('account_name'):
+                    current_email_data['account_name'] = item.get('account_name')
+                else:
+                    info = ACCOUNT_MAP.get(item['account_id'], {})
+                    current_email_data['account_name'] = info.get('accountName', 'Unknown')
+                    current_email_data['poc_name'] = info.get('pocName', 'Customer')
 
-            # Node: LLM Analysis
-            # ctx.log(f"--- Node: AI Analysis (Bedrock) for {current_email_data['extracted_account_id']} ---")
-            llm_text = invoke_llm(bedrock, current_email_data)
+                # LLM Analysis (Anomaly)
+                llm_text = invoke_llm(bedrock, current_email_data)
+                parsed_data = parse_llm_response(llm_text)
+                
+                final_data = {**current_email_data, **parsed_data}
+                html_card = generate_html_card(ctx, final_data, f"{i}_{idx}")
+                cards.append(html_card)
             
-            # Node: Parse JSON
-            parsed_data = parse_llm_response(llm_text)
+            # Tag with 'fetched'
+            if fetched_label_id:
+                add_label_to_message(service, 'me', msg['id'], fetched_label_id)
+                ctx.log(f"  > Tagged as 'fetched'")
+        
+        else:
+            # --- BUDGET / RI UTILIZATION FLOW ---
+            ctx.log(f"  > Route: BUDGET ({message_family})")
             
-            # Merge with original email meta (ID, Date, Subject, etc)
-            final_data = {**current_email_data, **parsed_data}
+            # No splitting needed for budget emails (single account per email)
+            # LLM Analysis (Budget)
+            llm_text = invoke_budget_llm(bedrock, email_data)
+            parsed_data = parse_budget_llm_response(llm_text)
             
-            # Node: Generate Card
-            # ctx.log("--- Node: Generate HTML Card ---")
-            html_card = generate_html_card(ctx, final_data, f"{i}_{idx}")
-            
+            final_data = {**email_data, **parsed_data}
+            html_card = generate_html_card(ctx, final_data, f"{i}_budget")
             cards.append(html_card)
-
-        # Tag as fetched
-        if label_id:
-            add_label_to_message(service, 'me', msg['id'], label_id)
-            ctx.log(f"  > Tagged message {msg['id']} as 'fetched'")
+            
+            # Tag with 'budget'
+            if budget_label_id:
+                add_label_to_message(service, 'me', msg['id'], budget_label_id)
+                ctx.log(f"  > Tagged as 'budget'")
     
-    ctx.log(f"--- Finished Analysis. Generated {len(cards)} cards. ---")
+    ctx.log(f"--- Finished. Generated {len(cards)} cards. ---")
     return cards
 
-# Load account map on module import (keeps existing behavior)
+# Load account map on module import
 load_account_map()

@@ -90,7 +90,11 @@ def get_gmail_service():
 
     return build('gmail', 'v1', credentials=creds)
 
-def get_or_create_label(service, label_name):
+def get_or_create_label(service, label_name, bg_color=None):
+    """
+    Gets or creates a Gmail label.
+    bg_color: Hex color without # (e.g., 'fb4934' for red, '83a598' for blue-gray)
+    """
     try:
         results = service.users().labels().list(userId='me').execute()
         labels = results.get('labels', [])
@@ -98,8 +102,20 @@ def get_or_create_label(service, label_name):
             if label['name'].lower() == label_name.lower():
                 return label['id']
         
-        # Create
-        label_object = {'name': label_name, 'labelListVisibility': 'labelShow', 'messageListVisibility': 'show'}
+        # Create with color if specified
+        label_object = {
+            'name': label_name,
+            'labelListVisibility': 'labelShow',
+            'messageListVisibility': 'show'
+        }
+        if bg_color:
+            # Remove # if present
+            bg_color = bg_color.lstrip('#')
+            label_object['color'] = {
+                'backgroundColor': f'#{bg_color}',
+                'textColor': '#ffffff'
+            }
+        
         created_label = service.users().labels().create(userId='me', body=label_object).execute()
         return created_label['id']
     except Exception as e:
