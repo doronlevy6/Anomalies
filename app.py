@@ -119,6 +119,15 @@ def reload_map():
     try:
         count = anomalies_logic.load_account_map()
         alerts_logic.load_account_map_independent()
+        
+        # Auto-open the file for visibility
+        excel_path = os.path.join(os.path.dirname(__file__), 'templates', 'mailsToFlow1.xlsx')
+        if os.path.exists(excel_path):
+            try:
+                subprocess.run(['open', excel_path]) # macOS specific
+            except Exception as ex:
+                print(f"Failed to open Excel: {ex}")
+                
         return jsonify({
             "status": "success", 
             "count": count, 
