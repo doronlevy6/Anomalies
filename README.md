@@ -37,6 +37,23 @@ Open your web browser and navigate to:
 
 ---
 
+## 📊 Anomaly Status Guide
+
+Use the **Status** dropdown in the tracking tables to manage the lifecycle of an anomaly:
+
+| Status | Description (Hebrew) | Use Case |
+| :--- | :--- | :--- |
+| **Sent** | נשלח ללקוח | Initial alert has been sent to the customer. |
+| **Ongoing** | המשך אנומליה | The anomaly is still active and reported across multiple days. |
+| **Watchlist** | לא נשלח - לעקוב | Identified but not yet sent; being monitored internally. |
+| **Aware - New** | הלקוח יודע - פעילות חדשה | Customer confirmed this is a new intentional activity/project. |
+| **Aware - Scaling** | הלקוח יודע - תגבור פעילות | Customer confirmed this is expected scaling of existing services. |
+| **Checking** | הלקוח בודק | Customer is currently investigating the cause on their side. |
+| **Investigating** | בחקירה / בבדיקה שלנו | FinOps team is performing a deep dive into the root cause. |
+| **Acknowledged** | התקבל אישור / עודכן | Customer acknowledged the report; no further action needed. |
+
+---
+
 ## 📂 Project Structure
 
 *   `app.py`: Flask web server entry point.
