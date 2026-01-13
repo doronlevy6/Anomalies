@@ -50,9 +50,10 @@ def run_anomalies_workflow(ctx: WorkflowContext, limit=15):
         ctx.log(f"Error authenticating AWS: {e}")
         raise e
 
-    # Ensure labels exist
-    fetched_label_id = get_or_create_label(service, 'fetched', '83a598')  # Blue-gray
-    budget_label_id = get_or_create_label(service, 'budget', 'fb4934')    # Red
+    # Ensure labels exist (using Gmail allowed colors)
+    # See palette: #fb4c2f (red), #16a765 (green), #4986e7 (blue), etc.
+    fetched_label_id = get_or_create_label(service, 'fetched', '#4986e7')  # Blue
+    budget_label_id = get_or_create_label(service, 'budget', '#fb4c2f')    # Red
     
     if fetched_label_id:
         ctx.log(f"Label 'fetched' ready (ID: {fetched_label_id})")

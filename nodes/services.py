@@ -109,10 +109,11 @@ def get_or_create_label(service, label_name, bg_color=None):
             'messageListVisibility': 'show'
         }
         if bg_color:
-            # Remove # if present
-            bg_color = bg_color.lstrip('#')
+            # Gmail only allows specific colors from a palette
+            # Using text/background color IDs instead of hex
+            # See: https://developers.google.com/gmail/api/reference/rest/v1/users.labels
             label_object['color'] = {
-                'backgroundColor': f'#{bg_color}',
+                'backgroundColor': bg_color,
                 'textColor': '#ffffff'
             }
         
