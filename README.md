@@ -30,56 +30,7 @@ The system is designed as a modular pipeline, orchestrated by `anomalies_logic.p
 
 ### Visual Workflow
 
-```text
-┌─────────────────┐
-│     START       │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐      ┌──────────────────┐
-│  Gmail Service  │ ───► │  Search Trigger  │
-└─────────────────┘      └────────┬─────────┘
-                                  │
-                                  ▼
-                         ┌──────────────────┐
-                         │   Fetch Content  │
-                         └────────┬─────────┘
-                                  │
-                                  ▼
-                         ┌──────────────────┐
-                         │ Metadata Extract │
-                         └────────┬─────────┘
-                                  │
-                                  ▼
-                         ┌──────────────────┐
-                         │ Identify Account │
-                         └────────┬─────────┘
-                                  │
-                  ┌───────────────┴───────────────┐
-                  ▼                               ▼
-        ┌──────────────────┐            ┌──────────────────┐
-        │    RESELLER      │            │     STANDARD     │
-        │ (Split by Acct)  │            │ (Split by Date)  │
-        └─────────┬────────┘            └─────────┬────────┘
-                  │                               │
-                  └───────────────┬───────────────┘
-                                  │
-                                  ▼
-                         ┌──────────────────┐
-                         │   Deduplicate    │
-                         └────────┬─────────┘
-                                  │
-                                  ▼
-                         ┌──────────────────┐
-                         │   LLM Analysis   │
-                         │    (Bedrock)     │
-                         └────────┬─────────┘
-                                  │
-                                  ▼
-                         ┌──────────────────┐
-                         │  Generate Cards  │
-                         └──────────────────┘
-```
+(Diagram removed per user request)
 
 ### Component Roles
 
