@@ -894,6 +894,19 @@ def run_anomalies_workflow(ctx: WorkflowContext, limit=15):
     messages = results.get('messages', [])
     ctx.log(f"Found {len(messages)} messages.")
     
+    # DEBUG: Print all subjects found to help debug "Waller" issue
+    if messages:
+        ctx.log("\n--- DEBUG: Incoming Messages List ---")
+        for i, m in enumerate(messages):
+            try:
+                msg_detail = service.users().messages().get(userId='me', id=m['id'], format='metadata').execute()
+                headers = {h['name'].lower(): h['value'] for h in msg_detail['payload']['headers']}
+                subject = headers.get('subject', 'No Subject')
+                ctx.log(f"[{i+1}] ID: {m['id']} | Subject: {subject}")
+            except Exception as e:
+                ctx.log(f"[{i+1}] ID: {m['id']} | Error fetching metadata: {e}")
+        ctx.log("-------------------------------------\n")
+    
     cards = []
     
     for i, msg in enumerate(messages):

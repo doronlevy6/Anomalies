@@ -576,13 +576,23 @@
         }
 
         // --- Tab Logic ---
+        let lastScanScrollY = 0;
+
         function openTab(tabName) {
+            // Save scroll position if leaving scan tab
+            const scanTab = document.getElementById('scanTab');
+            if (scanTab.style.display !== 'none') {
+                lastScanScrollY = window.scrollY;
+            }
+
             document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
 
             if (tabName === 'scan') {
                 document.getElementById('scanTab').style.display = 'block';
                 document.querySelector('.tab-btn[onclick="openTab(\'scan\')"]').classList.add('active');
+                // Restore scroll position
+                window.scrollTo(0, lastScanScrollY);
             } else {
                 document.getElementById('trackingTab').style.display = 'block';
                 document.querySelector('.tab-btn[onclick="openTab(\'tracking\')"]').classList.add('active');
