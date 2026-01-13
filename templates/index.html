@@ -24,6 +24,11 @@
                 <span>Anomaly Detective</span>
             </div>
             <div class="header-actions">
+                <div class="input-group" style="display:flex; align-items:center; gap:8px; margin-left:10px;">
+                    <label for="emailLimit" style="font-size:0.9rem; font-weight:500;">כמות מיילים:</label>
+                    <input type="number" id="emailLimit" value="15" min="1" max="100"
+                        style="width:60px; padding:6px; border:1px solid #d1d5db; border-radius:6px; text-align:center;">
+                </div>
                 <button id="runBtn" class="primary-btn">
                     <span class="btn-text">הרץ בדיקה</span>
                     <span class="loader hidden"></span>
@@ -209,8 +214,16 @@
             container.innerHTML = '<div class="scanning-state"><div class="pulse"></div><p>תהליך רץ, נא להמתין...</p></div>';
 
             try {
+                // Get Email Limit
+                const limit = document.getElementById('emailLimit').value || 15;
+                appendLog(`Running scan with limit: ${limit} emails...`);
+
                 // Start Job
-                const res = await fetch('/api/run', { method: 'POST' });
+                const res = await fetch('/api/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ limit: parseInt(limit) })
+                });
                 if (res.status !== 202) {
                     const err = await res.json();
                     alert("שגיאה בהתחלה: " + err.message);
@@ -620,6 +633,9 @@
                 const checkbox = `<td><input type="checkbox" value="${row.Timestamp}" onchange="updateDeleteBtn('${tableId}')"></td>`;
 
                 if (tableId === 'dailyTable') {
+                    // Daily table - Status is ALSO editable with dropdown now
+                    const statusValue = row.Status || '';
+                    const statusId = `status-daily-${row.Timestamp.replace(/[: ]/g, '-')}`;
                     cells = `
                         ${checkbox}
                         <td>${row.Timestamp}</td>
@@ -627,7 +643,16 @@
                         <td>${row.Services}</td>
                         <td>${row['Usage Type'] || ''}</td>
                         <td>${row['Total Impact']}</td>
-                        <td>${row.Status}</td>
+                        <td>
+                            <select id="${statusId}" 
+                                    onchange="updateStatus('${row.Timestamp}', this.value, 'daily')"
+                                    style="width:100%; padding:4px; border:1px solid #d1d5db; border-radius:4px; background:white;">
+                                <option value="" ${statusValue === '' ? 'selected' : ''}>בחר סטטוס...</option>
+                                <option value="נשלח ללקוח" ${statusValue === 'נשלח ללקוח' ? 'selected' : ''}>נשלח ללקוח</option>
+                                <option value="המשך אנומליה" ${statusValue === 'המשך אנומליה' ? 'selected' : ''}>המשך אנומליה</option>
+                                <option value="לא נשלח (לעקוב)" ${statusValue === 'לא נשלח (לעקוב)' ? 'selected' : ''}>לא נשלח (לעקוב)</option>
+                            </select>
+                        </td>
                      `;
                 } else {
                     // Master table - Status is editable with dropdown
@@ -642,7 +667,7 @@
                         <td>${row['Total Impact']}</td>
                         <td>
                             <select id="${statusId}" 
-                                    onchange="updateStatus('${row.Timestamp}', this.value)"
+                                    onchange="updateStatus('${row.Timestamp}', this.value, 'master')"
                                     style="width:100%; padding:4px; border:1px solid #d1d5db; border-radius:4px; background:white;">
                                 <option value="נשלח ללקוח" ${statusValue === 'נשלח ללקוח' ? 'selected' : ''}>נשלח ללקוח</option>
                                 <option value="המשך אנומליה" ${statusValue === 'המשך אנומליה' ? 'selected' : ''}>המשך אנומליה</option>
@@ -671,13 +696,13 @@
             }, 500); // Wait for render
         }
 
-        // Update Status in Master table
-        async function updateStatus(timestamp, newStatus) {
+        // Update Status in Daily or Master table
+        async function updateStatus(timestamp, newStatus, fileType = 'master') {
             try {
                 const res = await fetch('/api/update-status', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ timestamp: timestamp, status: newStatus })
+                    body: JSON.stringify({ timestamp: timestamp, status: newStatus, file_type: fileType })
                 });
                 const data = await res.json();
                 if (data.status === 'success') {

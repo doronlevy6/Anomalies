@@ -28,7 +28,7 @@ class JobManager:
         self.thread = None
         self.lock = threading.Lock()
 
-    def start_job(self, mode='anomalies'):
+    def start_job(self, mode='anomalies', limit=15):
         with self.lock:
             if self.active_context and self.thread and self.thread.is_alive():
                 return False, "Job already running"
@@ -40,7 +40,7 @@ class JobManager:
                     if mode == 'alerts':
                         cards = alerts_logic.run_alerts_workflow(ctx)
                     else:
-                        cards = anomalies_logic.run_anomalies_workflow(ctx)
+                        cards = anomalies_logic.run_anomalies_workflow(ctx, limit=limit)
                     
                     ctx.msg_queue.put({"type": "result", "cards": cards})
                 except Exception as e:
@@ -88,7 +88,9 @@ def index():
 
 @app.route('/api/run', methods=['POST'])
 def run_analysis():
-    success, msg = job_manager.start_job(mode='anomalies')
+    data = request.json or {}
+    limit = data.get('limit', 15)
+    success, msg = job_manager.start_job(mode='anomalies', limit=limit)
     if success:
         return jsonify({"status": "started"}), 202
     else:
@@ -212,20 +214,20 @@ def get_tracking_data():
 
 @app.route('/api/update-status', methods=['POST'])
 def update_status():
-    """Updates the Status field for a specific row in Master table"""
+    """Updates the Status field for a specific row in Daily or Master table"""
     data = request.json
     timestamp = data.get('timestamp')
     new_status = data.get('status')
+    file_type = data.get('file_type', 'master') # Default to master for backward compatibility
     
     if not timestamp or not new_status:
         return jsonify({"status": "error", "message": "Missing timestamp or status"}), 400
     
     try:
-        success = export_helper.update_status(timestamp, new_status)
-        if success:
-            return jsonify({"status": "success", "message": f"Status updated to: {new_status}"})
-        else:
-            return jsonify({"status": "error", "message": "Row not found"}), 404
+        success = export_helper.update_status(timestamp, new_status, file_type)
+        return jsonify({"status": "success", "message": f"Status updated to: {new_status}"})
+    except ValueError as ve:
+        return jsonify({"status": "error", "message": str(ve)}), 404
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 

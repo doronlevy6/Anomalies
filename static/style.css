@@ -453,12 +453,17 @@ pre {
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     overflow-x: auto;
+    overflow-y: auto;
     border: 1px solid #e5e7eb;
+    max-height: 500px;
+    /* Enforce height limit for scrolling */
 }
 
 table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    /* Required for sticky headers to work properly with borders */
+    border-spacing: 0;
     font-size: 0.9rem;
 }
 
@@ -467,6 +472,16 @@ td {
     padding: 12px 16px;
     text-align: right;
     border-bottom: 1px solid #f3f4f6;
+}
+
+th {
+    position: sticky;
+    /* Make header sticky */
+    top: 0;
+    background-color: #f9fafb;
+    /* Ensure background is not transparent */
+    z-index: 10;
+    border-bottom: 2px solid #e5e7eb;
 }
 
 th {

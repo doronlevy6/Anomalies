@@ -30,8 +30,15 @@ def get_gmail_service():
     
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+            except Exception as e:
+                print(f"Token refresh failed: {e}. Deleting invalid token and re-authenticating...")
+                if os.path.exists(TOKEN_PATH):
+                    os.remove(TOKEN_PATH)
+                creds = None
+        
+        if not creds:
             # We must use the EXACT redirect URI registered in Google Console
             # Based on user input, it seems to be the n8n one
             redirect_uri = "http://localhost:5678/rest/oauth2-credential/callback"
@@ -858,7 +865,7 @@ def extract_console_link(html_content):
     return ""
 
 # --- Main Logic ---
-def run_anomalies_workflow(ctx: WorkflowContext):
+def run_anomalies_workflow(ctx: WorkflowContext, limit=15):
     ctx.log("--- Starting Analysis ---")
     
     if ctx.should_stop(): return []
@@ -882,8 +889,8 @@ def run_anomalies_workflow(ctx: WorkflowContext):
     # Node: Gmail Trigger
     ctx.log("--- Node: Gmail Trigger (Search) ---")
     query = 'in:inbox -label:fetched subject:"Cost anomaly"'
-    ctx.log(f"Searching for emails with query: '{query}'...")
-    results = service.users().messages().list(userId='me', q=query, maxResults=15).execute()
+    ctx.log(f"Searching for emails with query: '{query}' (Limit: {limit})...")
+    results = service.users().messages().list(userId='me', q=query, maxResults=limit).execute()
     messages = results.get('messages', [])
     ctx.log(f"Found {len(messages)} messages.")
     

@@ -127,9 +127,10 @@ def get_tracking_data():
         "master": master_df.to_dict(orient='records')
     }
 
-def update_status(timestamp, new_status):
-    """Updates the Status field for a specific row in Master table."""
-    df = load_excel(MASTER_FILE)
+def update_status(timestamp, new_status, file_type='master'):
+    """Updates the Status field for a specific row in the specified tracking file."""
+    file_path = MASTER_FILE if file_type == 'master' else DAILY_FILE
+    df = load_excel(file_path)
     
     if df.empty:
         return False
@@ -138,12 +139,25 @@ def update_status(timestamp, new_status):
     mask = df['Timestamp'].astype(str) == str(timestamp)
     
     if not mask.any():
-        return False
+        raise ValueError(f"Row with timestamp {timestamp} not found in {file_type}")
     
     # Update the Status field
     df.loc[mask, 'Status'] = new_status
     
     # Save back to Excel
-    df.to_excel(MASTER_FILE, index=False)
-    
-    return True
+    try:
+        with pd.ExcelWriter(file_path, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Anomalies')
+            
+            # Formats
+            workbook = writer.book
+            worksheet = writer.sheets['Anomalies']
+            header_format = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3', 'border': 1})
+            
+            # Apply header format
+            for col_num, value in enumerate(df.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+                
+            return True
+    except Exception as e:
+        raise Exception(f"Error saving Excel file: {str(e)}")
