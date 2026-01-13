@@ -562,3 +562,233 @@ th.sortable:hover {
 th.sortable:hover .sort-icon {
     opacity: 0.6;
 }
+
+/* Visual Workflow Modal (Floating) */
+.workflow-modal {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 999;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+.workflow-modal-content {
+    background: linear-gradient(135deg, #1e293b, #334155);
+    border-radius: 12px;
+    padding: 16px 24px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.workflow-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #fff;
+    font-weight: 600;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+}
+
+#workflowStatus {
+    color: #94a3b8;
+    font-weight: 400;
+    font-size: 0.85rem;
+}
+
+.workflow-nodes {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    direction: ltr;
+}
+
+.workflow-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    min-width: 55px;
+}
+
+.workflow-node.pending {
+    opacity: 0.4;
+}
+
+.workflow-node.active {
+    border-color: transparent;
+    background: rgba(59, 130, 246, 0.15);
+    position: relative;
+    overflow: visible;
+}
+
+.workflow-node.active::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 10px;
+    background: conic-gradient(from 0deg, #3b82f6, #8b5cf6, #ec4899, #3b82f6);
+    animation: rotateBorder 1.5s linear infinite;
+    z-index: -1;
+}
+
+.workflow-node.active::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background: #1e293b;
+    z-index: -1;
+}
+
+@keyframes rotateBorder {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.workflow-node.done {
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.2);
+}
+
+.workflow-node.error {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.2);
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+    }
+
+    50% {
+        box-shadow: 0 0 25px rgba(59, 130, 246, 0.6);
+    }
+}
+
+.node-icon {
+    font-size: 1.3rem;
+    margin-bottom: 4px;
+}
+
+.node-label {
+    color: #e2e8f0;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.node-status {
+    font-size: 0.65rem;
+    color: #94a3b8;
+    min-height: 16px;
+    max-width: 70px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.workflow-connector {
+    width: 20px;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1));
+}
+
+/* Results Modal */
+.results-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    position: relative;
+    background: #fff;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 900px;
+    max-height: 85vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: modalEnter 0.3s ease-out;
+}
+
+@keyframes modalEnter {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.3rem;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.modal-close:hover {
+    background: #e5e7eb;
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}

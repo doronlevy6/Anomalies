@@ -46,6 +46,58 @@
             <div class="console-header">System Log</div>
             <div class="console-output" id="consoleOutput"></div>
         </div>
+        <!-- Workflow Modal (Floating) -->
+        <div id="workflowModal" class="workflow-modal hidden">
+            <div class="workflow-modal-content">
+                <div class="workflow-header">
+                    <span>⚡ Workflow Pipeline</span>
+                    <span id="workflowStatus">Initializing...</span>
+                </div>
+                <div class="workflow-nodes">
+                    <div class="workflow-node" data-node="gmail">
+                        <div class="node-icon">📧</div>
+                        <div class="node-label">Gmail</div>
+                        <div class="node-status"></div>
+                    </div>
+                    <div class="workflow-connector"></div>
+                    <div class="workflow-node" data-node="fetch">
+                        <div class="node-icon">📥</div>
+                        <div class="node-label">Fetch</div>
+                        <div class="node-status"></div>
+                    </div>
+                    <div class="workflow-connector"></div>
+                    <div class="workflow-node" data-node="classify">
+                        <div class="node-icon">🏷️</div>
+                        <div class="node-label">Classify</div>
+                        <div class="node-status"></div>
+                    </div>
+                    <div class="workflow-connector"></div>
+                    <div class="workflow-node" data-node="account">
+                        <div class="node-icon">🏢</div>
+                        <div class="node-label">Account</div>
+                        <div class="node-status"></div>
+                    </div>
+                    <div class="workflow-connector"></div>
+                    <div class="workflow-node" data-node="llm">
+                        <div class="node-icon">🤖</div>
+                        <div class="node-label">AI</div>
+                        <div class="node-status"></div>
+                    </div>
+                    <div class="workflow-connector"></div>
+                    <div class="workflow-node" data-node="card">
+                        <div class="node-icon">🎴</div>
+                        <div class="node-label">Card</div>
+                        <div class="node-status"></div>
+                    </div>
+                    <div class="workflow-connector"></div>
+                    <div class="workflow-node" data-node="tag">
+                        <div class="node-icon">🔖</div>
+                        <div class="node-label">Tag</div>
+                        <div class="node-status"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="tabs-nav">
             <button class="tab-btn active" onclick="openTab('scan')">🔎 סריקה והתראות</button>
@@ -203,6 +255,59 @@
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
         }
 
+        // Workflow visualization helpers
+        let pendingResults = [];
+        const workflowModal = document.getElementById('workflowModal');
+        const workflowStatus = document.getElementById('workflowStatus');
+
+        function resetWorkflowNodes() {
+            document.querySelectorAll('.workflow-node').forEach(node => {
+                node.classList.remove('active', 'done', 'error');
+                node.classList.add('pending');
+                node.querySelector('.node-status').textContent = '';
+            });
+        }
+
+        function updateNodeStatus(nodeId, status, message = '') {
+            const node = document.querySelector(`.workflow-node[data-node="${nodeId}"]`);
+            if (!node) return;
+
+            node.classList.remove('pending', 'active', 'done', 'error');
+            node.classList.add(status);
+
+            const nodeStatusEl = node.querySelector('.node-status');
+            if (message && nodeStatusEl) {
+                nodeStatusEl.textContent = message.substring(0, 20);
+            }
+
+            // Update header status
+            if (status === 'active') {
+                workflowStatus.textContent = message || `Processing ${nodeId}...`;
+            } else if (status === 'done') {
+                workflowStatus.textContent = `${nodeId} complete`;
+            }
+        }
+
+        function showWorkflow() {
+            resetWorkflowNodes();
+            workflowModal.classList.remove('hidden');
+        }
+
+        function hideWorkflow() {
+            workflowModal.classList.add('hidden');
+        }
+
+        function openResultsModal() {
+            const modal = document.getElementById('resultsModal');
+            const modalContainer = document.getElementById('modalResultsContainer');
+            modalContainer.innerHTML = pendingResults.join('');
+            modal.classList.remove('hidden');
+        }
+
+        function closeResultsModal() {
+            document.getElementById('resultsModal').classList.add('hidden');
+        }
+
         runBtn.addEventListener('click', async () => {
             // UI State
             runBtn.classList.add('hidden');
@@ -211,6 +316,7 @@
 
             consoleLog.classList.remove('hidden');
             consoleOutput.innerHTML = ''; // Clear previous logs
+            showWorkflow(); // Show workflow progress
             container.innerHTML = '<div class="scanning-state"><div class="pulse"></div><p>תהליך רץ, נא להמתין...</p></div>';
 
             try {
@@ -240,7 +346,13 @@
                     if (data.type === 'log') {
                         // Python backend sends 'text', JS was expecting 'message'
                         appendLog(data.text || data.message || JSON.stringify(data));
+                    } else if (data.type === 'node') {
+                        // Update workflow visualization
+                        updateNodeStatus(data.node_id, data.status, data.message);
                     } else if (data.type === 'result') {
+                        // Hide workflow modal
+                        hideWorkflow();
+                        // Display results directly on main page (like before)
                         if (data.cards.length === 0) {
                             container.innerHTML = `
                                 <div class="empty-state">
@@ -252,10 +364,12 @@
                             container.innerHTML = data.cards.join('');
                         }
                     } else if (data.type === 'error') {
+                        hideWorkflow();
                         container.innerHTML = `<div class="error-msg">שגיאה: ${data.message}</div>`;
                         appendLog("ERROR: " + data.message);
                     } else if (data.type === 'done') {
                         appendLog("Finished.");
+                        hideWorkflow();
                         evtSource.close();
                         resetUI();
                     }

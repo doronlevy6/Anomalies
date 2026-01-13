@@ -106,6 +106,18 @@ def generate_html_card(ctx, data, index):
     gmail_client_he = f"mailto:{ops_email}?subject={quote(custom_subject)}&cc={quote(cc_emails)}&body={quote(client_he_body)}"
     gmail_client_en = f"mailto:{ops_email}?subject={quote(custom_subject)}&cc={quote(cc_emails)}&body={quote(client_en_body)}"
     
+    # Determine badge info
+    msg_family = data.get('message_family', 'cost_anomaly')
+    if msg_family == 'budget_notification':
+        badge_text = "Budget"
+        badge_style = "background-color: #fb4934; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.7em; vertical-align: middle; margin-right: 8px; display:inline-block;"
+    elif msg_family == 'ri_utilization_alert':
+        badge_text = "RI Alert"
+        badge_style = "background-color: #b16286; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.7em; vertical-align: middle; margin-right: 8px; display:inline-block;"
+    else:
+        badge_text = "Anomaly"
+        badge_style = "background-color: #458588; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.7em; vertical-align: middle; margin-right: 8px; display:inline-block;"
+
     card_html = f"""
     <div class="card" data-urgency="{urgency}">
         <div class="urg-container">
@@ -114,7 +126,10 @@ def generate_html_card(ctx, data, index):
         
         <div class="row">
             <div>
-                <div class="subject">{custom_subject}</div>
+                <div class="subject">
+                    <span style="{badge_style}">{badge_text}</span>
+                    {custom_subject}
+                </div>
                 <div class="meta">{meta_html}</div>
             </div>
         </div>
