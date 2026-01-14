@@ -114,9 +114,12 @@ def generate_html_card(ctx, data, index):
     elif msg_family == 'ri_utilization_alert':
         badge_text = "RI Alert"
         badge_style = "background-color: #b16286; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.7em; vertical-align: middle; margin-right: 8px; display:inline-block;"
+    elif msg_family == 'free_tier':
+        badge_text = "Free Tier"
+        badge_style = "background-color: #00bcd4; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.7em; vertical-align: middle; margin-right: 8px; display:inline-block;"
     else:
         badge_text = "Anomaly"
-        badge_style = "background-color: #458588; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.7em; vertical-align: middle; margin-right: 8px; display:inline-block;"
+        badge_style = "background-color: #16a765; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.7em; vertical-align: middle; margin-right: 8px; display:inline-block;"
 
     card_html = f"""
     <div class="card" data-urgency="{urgency}">

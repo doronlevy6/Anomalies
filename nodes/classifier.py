@@ -15,7 +15,15 @@ def classify_email(sender: str, subject: str) -> dict:
     sender_lower = sender.lower() if sender else ""
     subject_lower = subject.lower() if subject else ""
     
-    # Budget emails - check subject first (more reliable)
+    # 1. Cost Anomaly (Highest Priority per user request)
+    if "cost anomaly" in subject_lower:
+        return {
+            "family": "cost_anomaly",
+            "label": "fetched",
+            "label_color": "#16a765"  # Green
+        }
+
+    # 2. Budget emails - check subject
     if "aws budget" in subject_lower or "aws budgets" in subject_lower:
         if "ri utilization" in subject_lower:
             return {
@@ -29,6 +37,16 @@ def classify_email(sender: str, subject: str) -> dict:
                 "label": "budget", 
                 "label_color": "#fb4934"  # Red
             }
+
+    # 3. Free Tier alerts
+    if "aws free tier" in subject_lower:
+        return {
+            "family": "free_tier",
+            "label": "freetier",
+            "label_color": "#00bcd4"  # Teal/Cyan
+        }
+    
+    # --- Sender / Fallback Logic ---
     
     # Fallback: Budget emails from AWS sender
     if "budgets@costalerts.amazonaws.com" in sender_lower:
@@ -44,13 +62,13 @@ def classify_email(sender: str, subject: str) -> dict:
                 "label": "budget", 
                 "label_color": "#fb4934"  # Red
             }
-    
-    # Cost Anomaly emails
-    if "cost anomaly" in subject_lower:
+
+    # Fallback: Free Tier from sender
+    if "freetier@costalerts.amazonaws.com" in sender_lower:
         return {
-            "family": "cost_anomaly",
-            "label": "fetched",
-            "label_color": "#83a598"  # Gruvbox blue-gray
+            "family": "free_tier",
+            "label": "freetier",
+            "label_color": "#00bcd4"  # Teal/Cyan
         }
     
     # Unknown type

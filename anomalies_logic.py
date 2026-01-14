@@ -9,6 +9,7 @@ from nodes.account_manager import load_account_map, get_account_map, extract_acc
 from nodes.splitting_logic import split_reseller_email, split_email_by_anomalies, deduplicate_usage_types
 from nodes.llm_engine import invoke_llm, parse_llm_response
 from nodes.budget_llm_engine import invoke_budget_llm, parse_budget_llm_response
+from nodes.freetier_llm_engine import invoke_freetier_llm, parse_freetier_llm_response
 from nodes.classifier import classify_email
 from nodes.ui_generator import generate_html_card
 
@@ -65,19 +66,22 @@ def run_anomalies_workflow(ctx: WorkflowContext, limit=15):
         raise e
 
     # Ensure labels exist (using Gmail allowed colors)
-    # See palette: #fb4c2f (red), #16a765 (green), #4986e7 (blue), etc.
-    fetched_label_id = get_or_create_label(service, 'fetched', '#4986e7')  # Blue
+    # See palette: #fb4c2f (red), #16a765 (green), #4986e7 (blue), #00bcd4 (cyan)
+    fetched_label_id = get_or_create_label(service, 'fetched', '#16a765')  # Green (Requested)
     budget_label_id = get_or_create_label(service, 'budget', '#fb4c2f')    # Red
+    freetier_label_id = get_or_create_label(service, 'freetier', '#4986e7')  # Blue (Swapped with old fetched color)
     
     if fetched_label_id:
         ctx.log(f"Label 'fetched' ready (ID: {fetched_label_id})")
     if budget_label_id:
         ctx.log(f"Label 'budget' ready (ID: {budget_label_id})")
+    if freetier_label_id:
+        ctx.log(f"Label 'freetier' ready (ID: {freetier_label_id})")
     
     # Node: Gmail Trigger - UNIFIED QUERY
     ctx.emit_node("fetch", "active", "Searching emails...")
     ctx.log("--- Node: Gmail Trigger (Unified Search) ---")
-    query = 'in:inbox -label:fetched -label:budget (subject:"Cost anomaly" OR subject:"AWS Budgets" OR from:budgets@costalerts.amazonaws.com)'
+    query = 'in:inbox -label:fetched -label:budget -label:freetier (subject:"Cost anomaly" OR subject:"AWS Budgets" OR subject:"AWS Free Tier" OR from:budgets@costalerts.amazonaws.com OR from:freetier@costalerts.amazonaws.com)'
     ctx.log(f"Searching with query: '{query}' (Limit: {limit})...")
     results = service.users().messages().list(userId='me', q=query, maxResults=limit).execute()
     messages = results.get('messages', [])
@@ -249,6 +253,29 @@ def run_anomalies_workflow(ctx: WorkflowContext, limit=15):
                 ctx.log(f"  > Tagged as 'fetched'")
             ctx.emit_node("tag", "done")
         
+        elif message_family == 'free_tier':
+            # --- FREE TIER FLOW ---
+            ctx.log(f"  > Route: FREE TIER")
+            
+            # LLM Analysis (Free Tier)
+            ctx.emit_node("llm", "active", "Analyzing Free Tier...")
+            llm_text = invoke_freetier_llm(bedrock, email_data)
+            parsed_data = parse_freetier_llm_response(llm_text)
+            ctx.emit_node("llm", "done")
+            
+            final_data = {**email_data, **parsed_data}
+            ctx.emit_node("card", "active", "Generating card...")
+            html_card = generate_html_card(ctx, final_data, f"{i}_freetier")
+            cards.append(html_card)
+            ctx.emit_node("card", "done")
+            
+            # Tag with 'freetier'
+            ctx.emit_node("tag", "active", "Tagging email...")
+            if freetier_label_id:
+                add_label_to_message(service, 'me', msg['id'], freetier_label_id)
+                ctx.log(f"  > Tagged as 'freetier'")
+            ctx.emit_node("tag", "done")
+
         else:
             # --- BUDGET / RI UTILIZATION FLOW ---
             ctx.log(f"  > Route: BUDGET ({message_family})")
@@ -278,3 +305,24 @@ def run_anomalies_workflow(ctx: WorkflowContext, limit=15):
 
 # Load account map on module import
 load_account_map()
+
+def fetch_email_html(message_id):
+    """
+    Fetches the raw HTML content of a specific email by ID.
+    Used for the 'View Original Email' feature.
+    """
+    try:
+        service = get_gmail_service()
+        m = service.users().messages().get(userId='me', id=message_id, format='full').execute()
+        
+        # We reuse extract_email_body but just return the HTML part
+        _, body_html = extract_email_body(m['payload'])
+        
+        # If no HTML found, fallback to text wrapping
+        if not body_html:
+            body_text, _ = extract_email_body(m['payload'])
+            body_html = f"<pre style='white-space: pre-wrap; font-family: monospace;'>{body_text}</pre>"
+            
+        return body_html
+    except Exception as e:
+        return f"<h1>Error loading email</h1><p>{str(e)}</p>"
