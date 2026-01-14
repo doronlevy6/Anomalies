@@ -2,6 +2,7 @@ import time
 import re
 from urllib.parse import quote
 from .account_manager import ACCOUNT_MAP
+from .data_extractor import extract_structured_data, generate_structured_html
 
 def generate_html_card(ctx, data, index):
     urgency = data.get('urgency', 'low').lower()
@@ -158,7 +159,7 @@ def generate_html_card(ctx, data, index):
         
         <div id="{uid}-an" class="section he" style="display:none;">
             <div class="section-title">פרטים מלאים:</div>
-            <pre>{data.get('anomalies_he', '')}</pre>
+            {generate_structured_html(extract_structured_data(data, data))}
         </div>
 
         
